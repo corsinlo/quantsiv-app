@@ -1,0 +1,52 @@
+# Quantsiv MVP - Requirements
+# Based on the technical architecture from MVP specifications
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Async Task Queue
+arq[redis]==0.22.0
+
+# Database
+SQLAlchemy==2.0.23
+alembic==1.13.1
+
+# GitHub Integration
+PyGithub==2.3.0
+gitpython==3.1.40
+
+# Scanning Engines
+sslyze==5.3.1
+cbomkit-lib==1.0.0  # Would be installed via Maven or bundled JAR
+cyclonedx-python-lib==0.17.3
+
+# Template Engine
+jinja2==3.1.4
+
+# Frontend (served via templates)
+# HTMX and Alpine.js loaded from CDN in templates
+
+# PDF Generation
+weasyprint==61.2
+
+# Stripe Integration
+stripe==8.2.0
+
+# Email (for behavioral sequences)
+resend==0.2.0
+# or postmark==3.0.0
+
+# Security
+python-jose[cryptografia]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Monitoring & Logging
+python-multipart==0.0.6
+email-validator==2.1.1
+
+# Development
+pytest==7.4.3
+pytest-asyncio==0.23.6
+black==23.12.1
+flake8==7.0.0

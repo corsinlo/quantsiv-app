@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Scan Header -->
+    <div class="border-b pb-4">
+        <div class="flex justify-between items-start">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">
+                    Scan in Progress
+                </h1>
+                <p class="mt-1 text-sm text-gray-500">
+                    Scanning: {{ repo_name or 'unknown/repo' }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Card -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-6">
+            <div class="space-y-4">
+                <!-- Progress Bar -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-600">Overall Progress</span>
+                        <span class="text-sm font-medium text-gray-600" id="progress-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progress-bar" class="h-2.5 bg-indigo-600 rounded-full transition-width" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Step Progress -->
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <div class="h-2.5 w-2.5 bg-indigo-600 rounded-full mt-1"></div>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">
+                                Cloning repository...
+                            </p>
+                            <p class="text-xs text-gray-500" id="step-1-status">Pending</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <div class="h-2.5 w-2.5 bg-gray-300 rounded-full mt-1"></div>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">
+                                Analyzing source code...
+                            </p>
+                            <p class="text-xs text-gray-500" id="step-2-status">Pending</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <div class="h-2.5 w-2.5 bg-gray-300 rounded-full mt-1"></div>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">
+                                Checking TLS configuration...
+                            </p>
+                            <p class="text-xs text-gray-500" id="step-3-status">Pending</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <div class="h-2.5 w-2.5 bg-gray-300 rounded-full mt-1"></div>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">
+                                Generating risk report...
+                            </p>
+                            <p class="text-xs text-gray-500" id="step-4-status">Pending</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Findings Counter -->
+                <div class="pt-4 border-t border-gray-200">
+                    <div class="flex justify-between">
+                        <span class="text-sm font-medium text-gray-600">Live Results</span>
+                        <span class="text-sm font-medium text-indigo-600" id="findings-counter">0 findings</span>
+                    </div>
+                    <div class="mt-2 space-y-1 text-sm text-gray-500">
+                        <div id="current-step">Initializing scan...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end space-x-3">
+        <button
+            onclick="window.location.href='/dashboard'"
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+        >
+            Back to Dashboard
+        </button>
+        <button
+            id="cancel-scan-btn"
+            hx-post="/api/scans/{{ scan_id }}/cancel"
+            hx-target="#main-content"
+            hx-swap="innerHTML"
+            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+        >
+            Cancel Scan
+        </button>
+    </div>
+</div>
+
+<script>
+// Server-Sent Events for live scan progress
+const eventSource = new EventSource(`/api/scans/${scan_id}/events`);
+
+eventSource.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    updateScanProgress(data);
+};
+
+eventSource.onerror = function(err) {
+    console.error("SSE Error:", err);
+    // In real app: handle reconnection or show error
+};
+
+function updateScanProgress(data) {
+    // Update progress bar
+    const progressPercent = data.progress || 0;
+    document.getElementById('progress-percent').textContent = progressPercent + '%';
+    document.getElementById('progress-bar').style.width = progressPercent + '%';
+
+    // Update step statuses
+    const steps = data.steps || [];
+    steps.forEach((step, index) => {
+        const statusEl = document.getElementById(`step-${index + 1}-status`);
+        if (statusEl) {
+            statusEl.textContent = step.status || 'Pending';
+            if (step.status === 'completed') {
+                // Mark step as completed
+                const stepDot = document.querySelectorAll(`.flex-shrink-0 > div`)[index];
+                if (stepDot) {
+                    stepDot.classList.remove('bg-gray-300');
+                    stepDot.classList.add('bg-indigo-600');
+                }
+            } else if (step.status === 'failed') {
+                // Mark step as failed
+                const stepDot = document.querySelectorAll(`.flex-shrink-0 > div`)[index];
+                if (stepDot) {
+                    stepDot.classList.remove('bg-gray-300');
+                    stepDot.classList.add('bg-red-600');
+                }
+            }
+        }
+    });
+
+    // Update findings counter
+    const findingsCount = data.findings_count || 0;
+    document.getElementById('findings-counter').textContent = `${findingsCount} findings`;
+
+    // Update current step description
+    const currentStep = data.current_step || 'Processing...';
+    document.getElementById('current-step').textContent = currentStep;
+
+    // Handle completion
+    if (data.status === 'completed') {
+        setTimeout(() => {
+            window.location.href = `/dashboard/scans/${scan_id}`;
+        }, 1500);
+    } else if (data.status === 'failed') {
+        document.getElementById('cancel-scan-btn').disabled = true;
+        document.getElementById('cancel-scan-btn').textContent = 'Failed';
+    }
+}
+
+// Handle cancel button
+document.getElementById('cancel-scan-btn').addEventListener('click', function() {
+    if (confirm('Are you sure you want to cancel this scan?')) {
+        // In real app: this would call the API to cancel
+        eventSource.close();
+        alert('Scan cancelled');
+        window.location.href = '/dashboard';
+    }
+});
+</script>
+{% endblock %}
