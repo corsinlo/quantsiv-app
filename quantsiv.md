@@ -36,25 +36,72 @@ A sufficiently powerful quantum computer running **Shor's algorithm** makes fact
 
 Current quantum computers can't do this yet. But the active threat is happening now:
 
-> **"Harvest now, decrypt later."** State actors and sophisticated adversaries are capturing and storing encrypted internet traffic today. They can't read it yet. When quantum computers mature (est. 2029–2035), they decrypt everything they stored. Your 2026 financial records, medical data, or trade secrets become readable in 2031.
+> **"Harvest now, decrypt later."** State actors and sophisticated adversaries are capturing and storing encrypted internet traffic today. They can't read it yet. When quantum computers mature, they decrypt everything they stored. Your 2026 financial records, medical data, or trade secrets become readable in the 2030s.
 
 Data that needs to stay confidential for 10+ years is already compromised if it's been captured in transit.
+
+This is not a fringe reading of the threat. US Executive Order 14412 (22 June 2026) states it as federal policy, describing adversaries "collecting United States information now, and decrypting it later once large-scale quantum computers are operational." CISA points to the G7 Cyber Expert Group roadmap for suggested timelines to reduce HNDL risk.
+
+The practical consequence: **the deadline that matters is not the arrival of the quantum computer, it is the length of time your data must stay secret.** That is why the migration cannot wait for the machine to appear.
 
 ---
 
 ## Regulatory Context
 
-- **NIST** finalized three quantum-resistant algorithm standards in August 2024:
-  - CRYSTALS-Kyber (ML-KEM, FIPS 203) — replaces Diffie-Hellman
-  - CRYSTALS-Dilithium (ML-DSA, FIPS 204) — replaces ECDSA
-  - SPHINCS+ (SLH-DSA, FIPS 205) — alternative signatures
-- **EO-14412 (June 2026):** US Executive Order mandating government-wide PQC migration with binding deadlines
-- **EU NIS2 Directive:** implicitly requires PQC preparedness for critical infrastructure
-- **Cyber insurance providers** now ask about PQC compliance at renewal (Lloyd's 2026)
-- **Only 5% of enterprises** have actually migrated as of mid-2026
-- **$15 billion** estimated PQC migration market
+The regulatory picture is now dated and specific. Every claim below is traceable to a
+primary source.
 
-The gap between mandate and reality is the market.
+**Standards — the algorithms exist.**
+
+- **NIST FIPS 203 / 204 / 205, approved 13 August 2024:**
+  - ML-KEM (FIPS 203, from CRYSTALS-Kyber) — key establishment, replaces Diffie-Hellman and RSA key transport
+  - ML-DSA (FIPS 204, from CRYSTALS-Dilithium) — digital signatures, replaces ECDSA and RSA signatures
+  - SLH-DSA (FIPS 205, from SPHINCS+) — stateless hash-based signatures, the conservative fallback
+- **NIST IR 8547 (Initial Public Draft, November 2024):** deprecates 112-bit classical
+  algorithms (RSA-2048, P-256) for new systems by **2030**, and disallows quantum-vulnerable
+  algorithms in NIST standards by **2035**.
+
+**US federal mandates — the deadlines are binding.**
+
+- **Executive Order 14412** ("Securing the Nation Against Advanced Cryptographic Attacks"),
+  signed **22 June 2026**, published at 91 FR 38483. Names harvest-now-decrypt-later
+  explicitly. Requires PQC key establishment on high-value assets and high-impact systems by
+  **31 December 2030**, and PQC digital signatures on those systems by **31 December 2031**.
+  Directs the FAR Council to bring covered contractors into FIPS/PQC compliance by end-2030.
+  EO 14413 is the companion innovation order.
+- **OMB M-26-15** ("Execution of the Migration to Post-Quantum Cryptography"), **24 June 2026**.
+  Sets a five-phase federal migration: 2026-27 strategy and discovery, 2027-28 pilots,
+  2028-30 prioritized key-establishment migration, 2031 signatures, 2035 full migration.
+  Requires a **central Cryptographic Bill of Materials (CBOM)**. Agency migration plans were
+  due **22 October 2026**.
+- **EO 14412 sec. 5(d):** CISA and NIST have 270 days — roughly to **March 2027** — to publish
+  the minimum elements for a CBOM.
+- **EO 14306:** TLS 1.3 or a successor required by **2 January 2030**.
+- **OMB M-23-02** (November 2022): the original federal cryptographic-inventory mandate.
+- **NSA CNSA 2.0:** governs National Security Systems, which EO 14412 explicitly excludes from
+  its scope; full transition by **2033**.
+
+**Guidance and allied posture.**
+
+- **CISA Post-Quantum Cryptography Initiative:** "Preparing for the Post-Quantum Era: A Call to
+  Action" (issued jointly in the G7 context), "Product Categories for Technologies That Use PQC
+  Standards", "PQC for Operational Technology", and "Strategy for Migrating to Automated PQC
+  Discovery and Inventory Tools" (September 2024).
+- **G7 Cyber Expert Group:** roadmap with suggested timelines to reduce harvest-now-decrypt-later
+  risk.
+- **EU and national:** NIS2 and DORA obligations are converging on the same cryptographic
+  inventory expectations. National guidance to track includes BSI (DE), ANSSI (FR), NCSC (UK)
+  and ETSI.
+
+**The wedge for Quantsiv:** EO 14412 makes a CBOM a federal deliverable with a publication
+deadline of roughly March 2027, and M-26-15 requires agencies to populate one centrally.
+Quantsiv already emits CycloneDX 1.6 CBOMs. Alignment is a mapping exercise, not a rebuild.
+
+**Stats to verify before external use.** The following figures appear in earlier drafts and
+are not yet sourced; confirm or drop them before they go in a deck: "only 5% of enterprises
+have migrated", "$15 billion PQC migration market", and "cyber insurance providers ask about
+PQC at renewal (Lloyd's 2026)". The mandate-versus-reality gap is the market either way, but
+it should be argued with a citable number.
 
 ---
 
@@ -224,6 +271,42 @@ Open-source building blocks to use:
 - Compliance PDF reports (NIST, CNSA 2.0, EU NIS2)
 - Enterprise multi-tenant support
 - Migration roadmap generator with effort estimates
+
+---
+
+## Four-Phase Product Roadmap
+
+The build plan above gets us to a shipped MVP. The product roadmap that follows is what the
+landing page and pitch deck present, and it is sequenced against the regulatory calendar
+rather than against engineering convenience. See `docs/ROADMAP.md` for full detail.
+
+**Phase 1 — Audit (now → 2027).** Deploy the MVP into CI/CD pipelines, map the complete
+cryptographic footprint of every application, identify and prioritize HNDL-specific exposure,
+and emit a CBOM aligned to the March 2027 minimum-element standard. Add JavaScript/TypeScript,
+container, and cloud coverage. *Regulatory anchor: EO 14412 discovery phase and the CBOM
+minimum-element deadline.*
+
+**Phase 2 — Migrate (2027 → 2028).** Close the loop from finding to fix: automated migration of
+vulnerable cryptographic dependencies, hybrid ciphers running classical and post-quantum
+algorithms in parallel for backward compatibility, generated pull requests with diffs and
+cited rationale, and rapid validation suites proving nothing broke. *Regulatory anchor:
+M-26-15 pilot phase; NIST IR 8547 deprecation lands in 2030.*
+
+**Phase 3 — Agentic crypto-agility (2028 → 2030).** Scale from per-repository scanning to a
+crypto-agile architecture spanning clouds, PKI, KMS and service meshes. AI agents select the
+optimal PQC algorithm for each use case and execute approved migrations autonomously in the
+pipeline, with a full audit trail and a crypto-agility scorecard. *Regulatory anchor: PQC key
+establishment on high-value systems by 31 December 2030; TLS 1.3 by 2 January 2030.*
+
+**Phase 4 — Platform consolidation (2030 → 2035).** A dedicated cryptographic research team
+and high-performance, constant-time implementations of the *standardized* primitives
+(ML-KEM, ML-DSA, SLH-DSA), consolidated into a single deployable unit, plus a managed PQC
+service, multi-region deployment and SOC 2 / ISO 27001. *Regulatory anchor: signatures by
+31 December 2031; full migration by 2035.*
+
+> Note on Phase 4: this is deliberately about proprietary *implementations* of
+> NIST-standardized algorithms, not about inventing new ones. Unvetted cryptography is a
+> liability, and claiming novel algorithms costs credibility with the buyers we are selling to.
 
 ---
 
