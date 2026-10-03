@@ -9,7 +9,9 @@ that changes.
   separate PR titled `WPN: ...`. Reference the finding IDs in commit messages.
 - A WP is **done** only when every acceptance check passes in CI. Update the status table in the
   same PR.
-- **BLOCKED** items need a founder decision (D1-D6 below). Do not invent legal entity details,
+- **Agent rule (D7).** No WP may add auto-merge, auto-deploy, a write-capable MCP tool, or any
+  code path that sends source code to a hosted model.
+- **BLOCKED** items need a founder decision (D1-D9 below). Do not invent legal entity details,
   prices, dates, statistics or regulatory claims. Leave a clearly marked TODO and move on.
 - Never add UI or README copy that claims a capability the code doesn't have. The README's
   status table is the single source of truth for what is built.
@@ -28,6 +30,7 @@ that changes.
 | WP7 | Local runner and CBOM ingest | blocked | | Needs D1 confirmed |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | todo | | |
+| WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed and D7 confirmed. No LLM in this WP |
 
 ## Decisions needed from the founder
 
@@ -39,6 +42,9 @@ that changes.
 | D4 | Legal identity | Entity name, registered address, KvK and VAT numbers, privacy contact email | WP8 content, footer |
 | D5 | Packaging and pricing | To be validated with design partners. The proposals live in `quantsiv.md`, "Pricing". | WP8 pricing display; billing |
 | D6 | Competitive positioning | Complementary to posture platforms (QIZ Security, Wiz for PQC Readiness): export and ingest CycloneDX, build no runtime or cloud inventory before Phase 3, and never use the label "cryptographic posture management". See `quantsiv.md`, "Posture platforms". | Nothing blocked; shapes the WP7 interoperability scope and the copy |
+| D7 | Agent principles | Agents propose, the pipeline verifies, a human approves. Deterministic tools decide every verdict; never auto-merge or auto-deploy. Agents are off by default per organisation, with a kill switch. The read-only policy MCP server ships free with the scanner; agents that use control-plane data go to design partners first. See `quantsiv.md`, "Agent layer". | WP10 |
+| D8 | Model hosting for LLM features | No LLM in Phase 1.0. Agents that touch code run in the customer's pipeline, on a model endpoint the customer chooses (bring your own model). Control-plane drafting (metadata only) uses an EU-region endpoint whose terms exclude training on customer data; choose the provider after reading its current terms. | Phase 1.1 lifetime assistant and evidence drafter; Phase 2 migration proposer |
+| D9 | Migration-corpus data rights | An opt-in clause in the design-partner agreement keeps code-free outcome records: rule ID, from/to primitive, library versions, fix class, verifier results, human verdict and reason. Diffs only with a separate written opt-in; deletion on request. Needs legal review. | Corpus collection; the first design-partner NDA |
 
 ## Target layout (reached gradually; don't refactor ahead of the WPs)
 
@@ -79,8 +85,9 @@ tests/
 - [ ] Add `.editorconfig`: `root = true`, then under `[*]` set `charset = utf-8`,
       `end_of_line = lf` and `insert_final_newline = true`.
 - [ ] Add `.gitattributes` containing `* text=auto eol=lf` (plus `*.png binary`).
-      Then, in its own commit (`WP0: normalize line endings`), run `git add --renormalize .`.
-      Today the repo stores CRLF, from Windows tooling.
+      Then run `git add --renormalize .`. The stored blobs are already LF (Windows checkouts
+      convert them through `core.autocrlf`), so expect no content changes. The file only pins
+      LF for every contributor.
 - [ ] `.gitignore`:
   - replace `*key*` with `*.key`, `*.pem` and `github-app-*.pem`;
   - stop ignoring `.env.example`;
@@ -327,3 +334,40 @@ tests/
 - [ ] Add `defer` to every script.
 
 **Acceptance:** total static weight per page is under 100 KB, excluding fonts (there are none).
+
+## WP10 - Agent foundations: policy MCP server and gate explainer (D7)
+**BLOCKED until WP7 has landed and D7 is confirmed.** Nothing in this WP calls an LLM. Never add
+UI or README copy claiming agents until this WP is merged.
+- [ ] `quantsiv_scanner/policy.py`. It loads the `policy:` section of `quantsiv.yml`: allowed and
+      blocked primitives per data class, declared lifetimes, and the signature deadline (default
+      2031-12-31 per EO 14412 §4(b), configurable). It exposes `evaluate(cbom_delta) -> Verdict`.
+      **The WP7 CI gate and the MCP server call this same function.**
+- [ ] `quantsiv mcp` subcommand: an MCP server over stdio, in the same package and container.
+  - It is offline by default and **read-only**.
+  - Tools: `get_policy`, `check_change`, `get_cbom_summary`, `explain_finding`.
+  - No tool writes files, runs git or a shell, or opens a network connection. The one exception:
+    with an org token, `get_cbom_summary` may read the estate CBOM through `GET /api/v1/cbom`
+    with a read-only scope.
+  - Use the official MCP Python SDK, pinned. Verify the current version and schema first.
+- [ ] Tool names, descriptions and schemas are static strings. A snapshot test fails if they
+      change without a version bump. Tool outputs are plain data; never put repository text into
+      tool descriptions.
+- [ ] Gate explainer. It renders the check-run, the PR comment and the SARIF from a Jinja
+      template, using the CBOM delta and the dual-track scores. Each new asset shows:
+  - its track ("HNDL" or "signature deadline");
+  - its declared lifetime;
+  - the cited authority;
+  - the approved alternatives.
+- [ ] Exceptions. Each one needs a named approver and an expiry. It is recorded in the CBOM as a
+      namespaced property and in the audit log.
+- [ ] Audit log of every MCP tool call and every gate verdict, exportable to the evidence pack.
+- [ ] Eval harness in `evals/agent/`: a few coding tasks on public demo repos, run with and
+      without the MCP server across the assistants available. It records gate verdicts only.
+      Its results feed the stealth-exit data report; never quote a benefit before it is
+      measured.
+
+**Acceptance:**
+- The CI gate and `check_change` return identical verdicts on the same delta (a property test).
+- The MCP server runs with networking disabled, and exposes no write-capable tool (a test).
+- The tool-description snapshot test passes.
+- A code-signing finding is explained on the signature-deadline track, never as HNDL.

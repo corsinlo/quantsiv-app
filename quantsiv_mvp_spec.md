@@ -89,6 +89,20 @@ sequenced in `docs/audit/REMEDIATION_PLAN.md`.
     - **No runtime or cloud posture inventory.** Ingest it in Phase 3.
     - Details: `quantsiv.md` ("Posture platforms", "Delivery model") and
       `docs/audit/REMEDIATION_PLAN.md` (WP6, WP7).
+17. **Agent layer (decisions D7-D9, work package WP10).** Agents propose, the pipeline verifies,
+    a human approves.
+    - **First agents (WP10, after WP7; no LLM):**
+      - A1, a read-only policy MCP server (`quantsiv mcp`) for customers' AI coding assistants;
+      - A2, a gate explainer.
+    - **Later:** the lifetime assistant and evidence drafter (1.1), supplier CBOM intake (1.2),
+      the migration proposer (Phase 2), and the inventory reconciler and agility planner
+      (Phase 3).
+    - **Hard rules:**
+      - never auto-merge or auto-deploy;
+      - no write-capable MCP tools;
+      - no hosted model ever sees source code (D8);
+      - corpus records only under an opt-in clause (D9).
+    - Details: `quantsiv.md`, "Agent layer".
 
 ---
 

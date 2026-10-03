@@ -396,6 +396,8 @@ estate to inventory and no deadline that forces a purchase.
   - Deterministic codemods come first. An LLM may only propose a diff.
   - Validation suites run on every change, a human approves it, and nothing is ever
     auto-merged.
+  - Any LLM step runs in the customer's pipeline, on a model endpoint the customer chooses
+    (decision D8), so source code never reaches Quantsiv. See "Agent layer".
 
 - **Interoperability (neutral by design).**
   - **Export.** Every CBOM is plain CycloneDX 1.6 JSON plus SARIF, so any platform that imports
@@ -419,6 +421,8 @@ estate to inventory and no deadline that forces a purchase.
 - A native Jenkins plugin before a paying customer needs one. The container step covers Jenkins.
 - An IDE extension before the CI signal has proven precise.
 - A hosted service that holds customer keys.
+- A hosted model that sees customer source code.
+- Auto-merge or auto-deploy of any cryptographic change, by any agent.
 - FedRAMP before revenue.
 - B2C.
 
@@ -433,17 +437,126 @@ estate to inventory and no deadline that forces a purchase.
 **What makes it category-defining:**
 1. *Cryptography as change-controlled code.* A CBOM on every merge, diffed, with policy gates on
    the delta.
-2. *HNDL-true prioritisation.* Scores come from declared data lifetimes, not algorithm counts.
-   CycloneDX has discussed a protection-period field for CBOM (issue #1126, 2026); be its
-   reference user.
+2. *Dual-track scoring carried inside the CBOM.* Confidentiality findings are scored by declared
+   data lifetime (HNDL), and signatures by deadline. The lifetimes travel in the CBOM, with
+   history and, under opt-in, pooled priors.
+   - The Mosca-style formula itself is not unique: the open-source tool cryptosweep implements
+     it. The edge is estate-level, declared lifetimes inside the CBOM workflow.
+   - CycloneDX has discussed a protection-period field for CBOM (issue #1126, 2026); be its
+     reference user.
 3. *Zero source egress.* One engine serves SaaS, self-hosted and air-gapped customers.
 4. *Supplier CBOM exchange.* Vendors share attested CBOMs with regulated customers, the way SBOM
    sharing works.
 5. *Closed-loop, human-approved remediation,* inside the customer's pipeline.
+6. *Agents that read the organisation's ground truth,* and a gate that checks them (see "Agent
+   layer").
 
 "All-in-one plug-in" therefore means one engine, one policy model and one CBOM graph across code,
 TLS and (later) cloud KMS/PKI and runtime. It is delivered as SaaS, self-hosted or air-gapped, not
 as a hosted monolith.
+
+## Agent layer (proposed; decision D7)
+
+> Status: planned. Nothing in this section is built. The README status table is the single
+> source of truth.
+
+**Rule: agents propose, the pipeline verifies, a human approves.**
+- Deterministic tools decide every verdict: the scanner, the CBOM diff, the dual-track scorer
+  and the policy engine.
+- An LLM may draft text or a diff. It never decides pass or fail, never merges and never
+  deploys.
+- Agents that touch code run in the customer's pipeline, on a model the customer chooses (D8).
+  Source code never reaches Quantsiv.
+
+**Why agents.**
+- **Customers' AI coding assistants now write cryptographic code.** They need the organisation's
+  crypto policy and declared data lifetimes at the moment they write it, and an independent
+  check afterwards. In "Can Coding Agents Migrate to Post-Quantum Cryptography?" (Alquwayfili,
+  arXiv 2512.12989, v3 Sep 2026):
+  - four exploratory trials with frontier agents passed all 40 checks;
+  - but across 160 attempts in four local-agent configurations, twelve final patches passed
+    local verification and failed external requirements.
+
+  Local tests are not enough; a verifier is.
+- **Migration (Phases 2-3) is labour.** Agents that draft and verify let a small team serve many
+  repositories.
+
+**What is not new, so never claim it** (market check, 2026-10-03):
+- Wiz says its AI agents analyse PQC findings, and its Green Agent opens fix PRs.
+- Snyk, Semgrep, Socket and Endor Labs ship MCP servers or guardrails for coding agents. None of
+  them is crypto-specific.
+- IBM publishes an MCP server for its cryptography manager.
+- Keyfactor's MCP server (in preview) covers PKI operations.
+- Open-source PQC MCP servers exist, e.g. qrp-mcp, and cryptosweep, which also implements Mosca
+  scoring.
+
+**Where the market is open or crowded:**
+| Idea | Status |
+| --- | --- |
+| An MCP server that gives coding agents an organisation's *crypto policy and CBOM* | Open |
+| An agent that infers data lifetimes | Open |
+| Supplier CBOM intake | Open |
+| PQC pull-request agents | Some players (e.g. QuantumGenie; Moderne's PQC recipes are detection-only) |
+| Regulator-evidence agents | Crowded (Vanta, Drata) |
+
+**The agents.** Each one depends on the data and the gate beneath it.
+
+| Agent | Job | Autonomy | Phase |
+| --- | --- | --- | --- |
+| A1 Policy context server (`quantsiv mcp`) | Gives a customer's AI coding assistant the organisation's crypto policy, declared lifetimes and CBOM. Its `check_change` tool runs the same function as the merge gate | Read-only; no LLM of ours | 1.0 tail (WP10) |
+| A2 Gate explainer | Turns a failed CBOM delta into a cited PR comment, and records approved exceptions with an approver and an expiry | Posts comments only; no LLM | 1.0 tail (WP10) |
+| A3 Lifetime declaration assistant | Drafts `quantsiv.yml` data classes and lifetimes from the customer's own data inventory and retention policy | Draft for approval | 1.1, design partners first |
+| A4 Evidence drafter | Drafts the evidence pack. Every sentence is bound to a CBOM element or a cited obligation, and a deterministic citation checker verifies it | Draft for approval | 1.1 |
+| A5 Supplier CBOM intake | Validates supplier CBOMs (schema, attestation, diff, policy) and drafts follow-up questions that a human sends | Draft for approval | 1.2 |
+| A6 Migration proposer | Tries a codemod first and an LLM diff second. A verifier (re-scan, build and tests, known-answer and interoperability tests, performance budget) must pass. The output is a draft PR or a blocker report | Draft for approval; never auto-merge | Phase 2 |
+| A7 Inventory reconciler | Merges imported runtime inventories (Wiz export, Google Cloud KMS PQC insights, CycloneDX) into the estate graph | Read-only; ambiguous matches need a human | Phase 3 |
+| A8 Agility planner | Recommends an algorithm per use case from constraint tables, and plans staged rollouts with rollback | A named person approves each stage | Phase 3 |
+
+**Moat.** None of it exists yet; each part starts with the first design partner.
+- **CBOM history.** A CBOM on every merge, per organisation, which creates switching cost.
+- **Migration-pattern corpus.** Code-free records of human-approved outcomes, kept under opt-in
+  (D9). It cannot be scraped from GitHub.
+- **The gate's position.** The merge gate verifies every change, human or AI.
+- **Priors and obligations.** Declared-lifetime priors, plus the EU obligation library.
+- **The supplier network.**
+
+MCP servers and "agents" by themselves are table stakes.
+
+**Exclusivity, honestly.**
+- **Design partners first.** Agents that use control-plane data go to the 5-10 NDA design
+  partners first, because they are co-built on those pipelines and one founder can support only
+  that many.
+- **Founding-partner terms.** Early access, roadmap influence and a price lock, in exchange for an
+  opt-in, code-free corpus contribution (D9) and a reference if the partner is satisfied.
+- **Open where it spreads, paid where it compounds.** The scanner, the CI templates and the
+  read-only MCP server are free at the stealth exit. Agents that read the CBOM history, the
+  corpus or supplier data are paid.
+- **No fake scarcity.** No "invite-only" claims, and no waitlist counts beyond the real partner
+  cap.
+
+**Stealth-exit demo** (~Q2 2027, after WP7 and WP10):
+- Run the same coding task in a public demo repo twice, with and without `quantsiv mcp`
+  connected. The merge gate decides both times.
+- Show the exception log and the audit trail.
+- Publish the eval harness and its measured results, whatever they are.
+- No auto-fix, no auto-merge, and no hosted model that sees code.
+
+**Investor lines (honest):**
+- "Agents propose, the pipeline verifies, a human approves."
+- "Before an AI coding assistant writes cryptography, it should ask: what does this organisation
+  allow here, and how long must this data stay secret? Quantsiv is designed to answer from the
+  customer's own policy and CBOM, and to check the answer at the merge gate."
+- "The model is a commodity. The verifier and the history are not."
+- "Agents and MCP are table stakes. We sell the ground truth that agents read, and the gate that
+  checks them."
+
+**Do not claim:**
+- that anything here is built;
+- "first" or "only" MCP server for cryptography;
+- "only tool that scores by data lifetime";
+- "auto-fix", "self-healing" or "autonomous migration";
+- "agentless" as a differentiator;
+- any corpus size, accuracy or time-saved figure before it is measured.
 
 ## Go-to-Market Motion
 
@@ -507,7 +620,7 @@ as a hosted monolith.
 The early build plan that used to be here (a Python AST and regex scanner) is superseded. The
 current sources are:
 - `quantsiv_mvp_spec.md`: the build spec, at revision 1.1.
-- `docs/audit/REMEDIATION_PLAN.md`: the ordered work packages WP0-WP9, which turn today's
+- `docs/audit/REMEDIATION_PLAN.md`: the ordered work packages WP0-WP10, which turn today's
   skeleton into a working, secure app and then into the local runner (WP7).
 
 Open-source building blocks:
@@ -529,11 +642,13 @@ rather than against engineering convenience. (The full roadmap is a local-only s
 cryptographic footprint of every application. It prioritises HNDL exposure from declared data
 lifetimes, and emits a CBOM aligned to the CISA/NIST minimum-element guidance expected around
 March 2027. Milestones:
-- 1.0 (Q4 2026 to Q1 2027): local scanner plus design partners.
-- 1.1 (H1 2027): control plane and evidence packs.
+- 1.0 (Q4 2026 to Q1 2027): local scanner plus design partners. Then agent foundations (WP10):
+  the read-only policy MCP server (A1) and the gate explainer (A2), neither using an LLM.
+- 1.1 (H1 2027): control plane and evidence packs. Plus a design-partner preview of the lifetime
+  assistant (A3) and the evidence drafter (A4), both draft-for-approval.
 - 1.2 (H2 2027): self-hosted control plane, the GitHub App as a check-run surface, GitLab and
-  Azure DevOps marketplace entries, supplier CBOM exchange, container-image coverage, and SOC 2
-  readiness work.
+  Azure DevOps marketplace entries, supplier CBOM exchange with the intake agent (A5),
+  container-image coverage, and SOC 2 readiness work.
 
 *Regulatory anchor: EO 14412 / M-26-15 discovery phase; CBOM minimum elements; the EU roadmap's
 end-2026 national strategies.*
@@ -542,7 +657,10 @@ end-2026 national strategies.*
 vulnerable cryptographic dependencies, hybrid ciphers running classical and post-quantum
 algorithms in parallel for backward compatibility, generated pull requests with diffs and
 cited rationale, and rapid validation suites proving nothing broke. Every PR runs in the
-customer's pipeline with the customer's token, and a human merges it. *Regulatory anchor:
+customer's pipeline with the customer's token, and a human merges it. The migration proposer
+(A6) tries a codemod first and an LLM diff second, on the customer's model. A deterministic
+verifier must pass before it produces either a draft PR or a blocker report. Code-free outcome
+records build the migration corpus, under opt-in (D9). *Regulatory anchor:
 M-26-15 pilot phase; under NIST IR 8547 (draft), 112-bit RSA/ECC is deprecated after 2030.*
 
 **Phase 3 — Agentic crypto-agility (2028 → 2030).** Scale from per-repository scanning to a

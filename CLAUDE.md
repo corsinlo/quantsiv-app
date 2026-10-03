@@ -19,8 +19,8 @@ The app is a skeleton and **nothing runs yet**:
 
 The full audit is in [`docs/audit/2026-10-03-app-audit.md`](docs/audit/2026-10-03-app-audit.md)
 (findings A01-A53). The work plan is
-[`docs/audit/REMEDIATION_PLAN.md`](docs/audit/REMEDIATION_PLAN.md) (work packages WP0-WP9 and
-decisions D1-D6).
+[`docs/audit/REMEDIATION_PLAN.md`](docs/audit/REMEDIATION_PLAN.md) (work packages WP0-WP10 and
+decisions D1-D9).
 
 ## Session protocol (cloud or local)
 
@@ -32,7 +32,7 @@ decisions D1-D6).
 3. Before opening the PR, run all of these:
    `ruff check . && ruff format --check . && pytest && pip-audit -r requirements.txt`
 4. In the same PR, tick the checkboxes and update the WP's row in the status table.
-5. When you reach a decision D1-D6 or anything marked **BLOCKED**, stop and ask. Never invent
+5. When you reach a decision D1-D9 or anything marked **BLOCKED**, stop and ask. Never invent
    legal entity details, prices, dates, statistics, regulatory requirements or customer names.
 
 ## Commands (once WP1 has landed)
@@ -45,6 +45,13 @@ uvicorn app.main:app --reload              # web
 python -m arq app.worker.WorkerSettings    # worker; needs REDIS_URL
 pytest
 ```
+
+**In Claude Code cloud sessions,** the SessionStart hook (`.claude/settings.json` running
+`scripts/install_pkgs.sh`) creates `.venv` and installs the requirements automatically. Until
+WP1 fixes the pins, that install is expected to fail and is skipped.
+- Use `.venv/bin/python -m pytest`, or `source .venv/bin/activate`.
+- Docker may be unavailable in the cloud VM. If `docker` is missing, rely on the CI
+  `docker build` job (WP1).
 
 ## Narrative: keep it identical everywhere, and cite the authority each time
 
@@ -109,6 +116,14 @@ pytest
   - Never invent algorithms.
   - Never ship our own cryptographic implementations to customers without CMVP (FIPS 140-3)
     validation.
+- **Agents (D7, D8).**
+  - Agents propose, deterministic tools decide, and a human approves.
+  - Never add auto-merge or auto-deploy.
+  - The MCP server has no write tools.
+  - Never send source code to a hosted model.
+  - Never claim an agent capability in the UI or README before its code is merged.
+  - Never write "first or only MCP server for crypto", "auto-fix", "autonomous", or "agentless"
+    as a differentiator.
 - **Security.**
   - Secrets come only through `app/config.py` Settings.
   - Tokens never appear in URLs, argv, logs, the database or user-visible errors.
@@ -122,9 +137,8 @@ pytest
   - Don't publish legal pages until D4 (legal identity) is answered.
 - **Scope.** Landing-page work happens in `quantsiv-landing`, not here.
 - **Encoding.** Use UTF-8 with no BOM. Windows tooling previously wrote UTF-16 files into this
-  repo, and that breaks Python. Line endings become LF once WP0's `.gitattributes`
-  renormalisation lands; until then the repo stores CRLF, so don't mix the two inside a single
-  commit.
+  repo, and that breaks Python. The repository stores LF; only Windows checkouts show CRLF,
+  through `core.autocrlf`. WP0's `.gitattributes` makes LF explicit. Shell scripts must stay LF.
 - **Local-only files.** `app/templates/privacy_policy.html` is an inaccurate draft, and
   `write_privacy.py` is junk; both are untracked and must not be committed.
 
