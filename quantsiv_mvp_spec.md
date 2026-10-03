@@ -1,21 +1,123 @@
 # Quantsiv — MVP Spec
 
 **Version 1.0 | September 2026 | Solo Founder Document**
+**Revision 1.1 | 3 October 2026**: corrections from the code and compliance audit. Read this
+block first. Where it conflicts with the text below, this block wins.
+
+---
+
+## Revision 1.1: what changed and why
+
+Each item names the audit finding it comes from (`docs/audit/2026-10-03-app-audit.md`). Work is
+sequenced in `docs/audit/REMEDIATION_PLAN.md`.
+
+1. **Delivery model (decision D1, proposed).**
+   - Primary delivery is a **local-first scanner**: a CLI plus a container that runs in the
+     customer's CI after their build (GitHub Actions, GitLab, Jenkins via a container step,
+     Azure DevOps).
+   - Only the CBOM and metadata go to an EU-hosted control plane.
+   - The GitHub App that clones repos into our infrastructure (§1, §3, §7) is kept only for
+     public repositories and the demo scan.
+   - See `quantsiv.md`, "Delivery model".
+2. **Scan engine (A27).** There is no `java -jar cbomkit-lib.jar` CLI.
+   - `cbomkit-lib` is a Java library (github.com/cbomkit/cbomkit-lib) supporting **Java and
+     Python only**.
+   - Its Python detection covers pyca/cryptography only.
+   - Its Java accuracy depends on build artifacts.
+   - Remove Go from v1.0 claims, add Quantsiv rules for PyCryptodome, and pick the integration
+     under decision D2.
+3. **Classification (A30, A53).**
+   - AES-128 is **not** quantum-vulnerable: NIST IR 8547 (draft) treats ≥128-bit symmetric
+     primitives as meeting Category 1.
+   - Severity is ranked by CycloneDX primitive and declared data lifetime. Key establishment and
+     encryption protecting long-lived data rank highest (HNDL); signatures rank by their
+     deadline and artifact lifetime.
+   - This replaces the path heuristics that ranked signing above key exchange.
+4. **Cloning (A15, A16, A52).**
+   - Never put the token in the URL.
+   - Use down-scoped installation tokens that are revoked after use.
+   - Pass the token via `GIT_CONFIG_*` environment variables, with hardened clone flags, a size
+     pre-check, a sandboxed scanner, and a fixed user-facing error.
+5. **TLS scanning (A17).**
+   - Resolve, then check the IP: public addresses only, port 443 only, internal names blocked.
+   - Scan only verified domains (DNS TXT record).
+6. **Database (A51).** Use Postgres from day one. A SQLite file cannot be shared between Railway's
+   web and worker services.
+7. **Data minimisation (A39).** `findings.raw_match` is opt-in per tenant; store a snippet hash
+   by default.
+8. **Truthful UI and copy (A28, A29, A31).**
+   - No fabricated counters or demo data shown as real.
+   - The "live counter" in §4 shows only real aggregate numbers.
+   - The "HNDL score" label is used only when data lifetimes are declared.
+   - No time claims ("90 seconds") until they are measured.
+9. **Emails (A36).**
+   - Days 1, 3, 5 and 7 are marketing emails. They need consent or the existing-customer soft
+     opt-in, an unsubscribe link, `List-Unsubscribe` headers, and a postal address in the
+     footer.
+   - Content errors are fixed inline below.
+10. **Billing (A22, A37; decision D5).**
+    - The client sends a plan name, never a price ID.
+    - Stripe webhooks are verified with `construct_event`.
+    - The subscribe button shows the price, the billing period, VAT treatment, auto-renewal and
+      how to cancel.
+    - Pricing itself is on hold: see `quantsiv.md`, "Pricing".
+11. **Share links (A23).** Use random tokens, stored hashed in a `share_links` table, so they are
+    revocable and scoped to one scan, and keep them out of access logs.
+12. **Third parties (A19, A38).**
+    - Intercom sets cookies, so load it only after consent and list it as a subprocessor.
+    - Self-host htmx and the Tailwind build instead of using CDNs.
+13. **Build timeline (§8).** Superseded by `docs/audit/REMEDIATION_PLAN.md`; it is kept below for
+    history.
+14. **Sessions (A14, A24).** After GitHub OAuth, don't issue a long-lived JWT through
+    python-jose. Instead, use one of:
+    - an opaque session ID in an `HttpOnly; Secure; SameSite=Lax` cookie, mapped to a
+      `sessions` table;
+    - Starlette's `SessionMiddleware`.
+
+    Add CSRF tokens to every state-changing request, and scope every query through the
+    user's installations.
+15. **Go-to-market (§9, §10).** Superseded by `quantsiv.md`, "Go-to-Market Motion": NDA design
+    partners first, then the stealth exit around Q2 2027. §9 and §10 are kept below for
+    history.
+16. **Competitive positioning (D6, after the QIZ Security / Wiz review of 2026-10-03).**
+    - **Scoring is dual-track.** HNDL (by declared data lifetime) applies to key establishment
+      and encryption. A separate signature-deadline track covers signatures. Lifetimes are
+      written into the CBOM as a namespaced property.
+    - **The scanner is offline by default.**
+    - **The control plane ingests any schema-valid CycloneDX 1.6 CBOM**, with provenance, and
+      exports plain CycloneDX.
+    - **No runtime or cloud posture inventory.** Ingest it in Phase 3.
+    - Details: `quantsiv.md` ("Posture platforms", "Delivery model") and
+      `docs/audit/REMEDIATION_PLAN.md` (WP6, WP7).
+17. **Agent layer (decisions D7-D9, work package WP10).** Agents propose, the pipeline verifies,
+    a human approves.
+    - **First agents (WP10, after WP7; no LLM):**
+      - A1, a read-only policy MCP server (`quantsiv mcp`) for customers' AI coding assistants;
+      - A2, a gate explainer.
+    - **Later:** the lifetime assistant and evidence drafter (1.1), supplier CBOM intake (1.2),
+      the migration proposer (Phase 2), and the inventory reconciler and agility planner
+      (Phase 3).
+    - **Hard rules:**
+      - never auto-merge or auto-deploy;
+      - no write-capable MCP tools;
+      - no hosted model ever sees source code (D8);
+      - corpus records only under an opt-in clause (D9).
+    - Details: `quantsiv.md`, "Agent layer".
 
 ---
 
 ## 1. What the MVP Is
 
-Quantsiv v1.0 is a GitHub-native quantum cryptography scanner that detects quantum-vulnerable algorithms (RSA, ECDSA, Diffie-Hellman) in source code and TLS configurations, presents findings in a web dashboard, and exports a compliance-ready PDF report. A developer installs the Quantsiv GitHub App, selects a repository, and within 90 seconds sees a prioritized list of quantum-vulnerable cryptographic calls with exact file locations and plain-English risk descriptions. The MVP proves three things: the scanner finds real findings in real codebases, the results are legible to a developer without a security background, and at least one regulated-industry team will pay €99/month to scan more than one repository.
+Quantsiv v1.0 is a GitHub-native quantum cryptography scanner that detects quantum-vulnerable algorithms (RSA, ECDSA, Diffie-Hellman) in source code and TLS configurations, presents findings in a web dashboard, and exports a compliance-ready PDF report. A developer adds the Quantsiv scanner to their CI (or, for public repositories, installs the GitHub App), and after the next build sees a prioritized list of quantum-vulnerable cryptographic calls with exact file locations and plain-English risk descriptions. (Revised 1.1: the 1.0 text promised "within 90 seconds", which is unmeasured.) The MVP proves three things: the scanner finds real findings in real codebases, the results are legible to a developer without a security background, and at least one regulated design partner will pay for a fixed-fee readiness assessment and convert to an annual subscription. (Revised 1.1; pricing is on hold under D5. The 1.0 text said "will pay €99/month to scan more than one repository".)
 
-**Primary delivery mechanism**: The GitHub App, installed from GitHub Marketplace. Everything else — the CI/CD action, the CLI, the TLS domain scanner — is secondary and ships after the GitHub App produces its first paid customer.
+**Primary delivery mechanism** (revised in 1.1, decision D1): the local scanner, a CLI plus a container, running in the customer's CI through thin templates for GitHub Actions, GitLab, Jenkins and Azure DevOps. It uploads only the CBOM and metadata. The GitHub App becomes a later onboarding and check-run surface; its server-side clone serves public repos and the demo only. *(The 1.0 text said: "The GitHub App, installed from GitHub Marketplace. Everything else ... is secondary.")*
 
 **Explicitly not in v1.0:**
 
 - Cloud infrastructure scanning (AWS/Azure/GCP API integration)
 - Container image scanning
 - SAML/SSO authentication
-- Self-hosted deployment option
+- Self-hosted control plane (designed for, targeted H2 2027 per rev 1.1; local scanning itself IS in v1.0)
 - Subdomain enumeration
 - Compliance policy engine (custom rule definitions)
 - Multi-region data residency
@@ -29,35 +131,35 @@ Quantsiv v1.0 is a GitHub-native quantum cryptography scanner that detects quant
 
 | Feature | In v1.0 | Deferred | Notes |
 |---|---|---|---|
-| GitHub App installation | Yes | — | Primary acquisition path |
-| Source code scanning (Python, Java, Go) | Yes | — | Via cbomkit-lib subprocess |
+| GitHub App installation | Yes | — | Public repos + demo scan; later an onboarding/check-run surface (rev 1.1, D1) |
+| Source code scanning (Java, Python; Go later) | Yes | Go | Via CBOMkit (a Java library, no CLI; decision D2) plus Quantsiv rules (PyCryptodome) |
 | TLS/certificate scanning by domain | Yes | — | Via sslyze Python library |
 | CycloneDX 1.6 CBOM output | Yes | — | Standard format, no invention |
 | Web dashboard: findings table | Yes | — | Severity, file, line, algorithm |
 | Web dashboard: risk score | Yes | — | 0–100, derived from finding count and severity weights |
-| Plain-English risk descriptions | Yes | — | "RSA-2048 in JWT signing — vulnerable to Shor's algorithm by ~2032" |
-| Compliance PDF report export | Yes (paid) | — | Gated at Developer tier (€99/mo) |
+| Plain-English risk descriptions | Yes | — | "RSA-2048 in JWT signing: quantum-vulnerable (Shor's algorithm); migrate to ML-DSA (FIPS 204)". No invented dates (rev 1.1) |
+| Compliance PDF report export | Yes (paid) | — | Gated at Developer tier (€99/mo). v1.0 pricing, on hold under D5 |
 | GitHub Action for CI/CD | Yes | — | `quantsiv/scan-action@v1`, week 6 |
 | SARIF upload to GitHub Code Scanning | Yes | — | Ships with GitHub Action |
-| Free tier (1 repo, push-triggered scans) | Yes | — | No credit card required |
-| Developer tier (€99/mo, unlimited repos, 3 seats) | Yes | — | Stripe Checkout |
-| Team tier (€299/mo, 15 seats, API access) | Yes | — | Stripe Checkout |
-| Enterprise tier (€1k–5k/mo) | Partial | Full | Manual quote + Stripe invoice; metered billing deferred |
-| Annual pricing (20% discount) | Yes | — | Default UI toggle |
+| Free tier (1 repo, push-triggered scans) | Yes | — | No credit card required. v1.0 pricing, on hold under D5 |
+| Developer tier (€99/mo, unlimited repos, 3 seats) | Yes | — | Stripe Checkout. v1.0 pricing, on hold under D5 |
+| Team tier (€299/mo, 15 seats) | Yes | — | Stripe Checkout. v1.0 pricing, on hold under D5; API access is not in v1.0 (see §1) |
+| Enterprise tier (€1k–5k/mo) | Partial | Full | Manual quote + Stripe invoice; metered billing deferred. v1.0 pricing, on hold under D5 |
+| Annual pricing (20% discount) | Yes | — | Default UI toggle. v1.0 pricing, on hold under D5 |
 | Stripe Customer Portal (invoice, cancel, upgrade) | Yes | — | Single SDK call |
 | EU VAT / OSS scheme compliance | Yes | — | Stripe Tax enabled day 1 |
 | 7-day behavioral email sequence | Yes | — | Behavioral branching on scan completion |
-| Intercom support widget | Yes | — | Dashboard only |
+| Intercom support widget | Yes | — | Dashboard only; loaded only after cookie consent and listed as a subprocessor (rev 1.1, A38) |
 | Demo scan on empty dashboard | Yes | — | Public repo example shown before user's scan completes |
-| CLI scanner (`quantsiv scan .`) | Partial | Full | Wrapper that POSTs to API; full local mode deferred |
-| Snyk Broker equivalent (scan locally, report centrally) | No | v1.1 | Critical for enterprise but complex |
+| CLI scanner (`quantsiv scan .`) | Yes (core) | — | Full local mode is the primary delivery; upload to the control plane is optional (rev 1.1, D1) |
+| Snyk Broker equivalent (scan locally, report centrally) | — | — | Not needed: scanning is local by design (rev 1.1) |
 | Cloud infra scanning (AWS/Azure/GCP) | No | v2 | Different auth model entirely |
 | Container image scanning | No | v2 | Docker-in-Docker complexity |
 | SAML/SSO | No | v2 | GitHub OAuth only in v1 |
 | Slack community | No | Week 8 | Post-launch, not pre-launch |
 | PQL scoring and CRM | No | Month 3 | Manual Slack alerts to founder in v1 |
 | Semgrep-style cross-file dataflow analysis | No | v2 | cbomkit handles this partially |
-| JavaScript/TypeScript scanning | No | v1.1 | cbomkit coverage; add after Python/Java/Go validated |
+| JavaScript/TypeScript scanning | No | Later | Quantsiv rules; CBOMkit covers Java and Python only. Add after Java/Python are validated (rev 1.1) |
 
 ---
 
@@ -65,11 +167,15 @@ Quantsiv v1.0 is a GitHub-native quantum cryptography scanner that detects quant
 
 ### Recommended Tech Stack
 
-**Python 3.12 + FastAPI + ARQ + Redis + SQLite (MVP) → Postgres (production)**
+**Python 3.12 + FastAPI + ARQ + Redis + Postgres** (revised 1.1, A51: Postgres from day one; SQLite only for local tests. The 1.0 text said "SQLite (MVP) → Postgres (production)".)
 
 The entire scanning toolchain — sslyze, cyclonedx-python-lib, PyGithub, gitpython — is Python. Choosing a different language for the API layer would mean reimplementing TLS scanning and CBOM serialization from scratch. FastAPI is async-native, which is mandatory when you have concurrent long-running scan jobs. ARQ (async Redis queue, same author as Pydantic) has no Celery impedance mismatch and is the right choice for a solo founder who cannot afford operational complexity.
 
-cbomkit-lib is a Java JAR. Accept this. Run it as a subprocess. The Docker base image includes JRE 17 alongside Python 3.12. This is the correct approach — do not rewrite cbomkit-lib.
+(Revised 1.1, A27/D2.) `cbomkit-lib` is a Java **library** with no CLI. There are two ways to use it:
+- wrap it in a pinned fat jar that runs in the worker image only, with a JRE there and not in the web image; or
+- ingest CBOMs from CBOMkit's CI tooling run in the customer's pipeline after their build.
+
+Either way, do not rewrite the detection engine. (The 1.0 text said: "cbomkit-lib is a Java JAR. Run it as a subprocess.")
 
 The frontend is deliberately minimal: HTMX + Alpine.js + Tailwind CSS rendered server-side via Jinja2 templates. This is not a React SPA. The reason: a solo founder cannot maintain a separate frontend build pipeline, a FastAPI backend, and a scanning engine simultaneously. HTMX gives interactive behavior (polling for scan status, progressive result loading) without a JavaScript framework. Switch to React if and when you hire a frontend engineer.
 
@@ -102,7 +208,7 @@ The frontend is deliberately minimal: HTMX + Alpine.js + Tailwind CSS rendered s
 
 **ARQ Job Queue**: Redis-backed async task queue. Each scan job is independent. Workers are horizontally scalable — add a second worker container when scan queue depth exceeds 10 jobs.
 
-**Scan Worker**: The only process with file system access. Downloads repos to `/tmp/{scan_id}/`, runs cbomkit-lib, parses output, runs sslyze if domains are detected in config files, assembles CBOM, cleans up temp files in a `finally` block.
+**Scan Worker**: The only process with file system access. It downloads public or demo repos to `/tmp/{scan_id}/` using the hardened clone, runs the engine, and parses the output. It runs sslyze only for domains the customer has verified (DNS TXT), through `resolve_scan_target()`. It assembles the CBOM and cleans up temp files in a `finally` block. (Rev 1.1: A15, A16, A17, D1.)
 
 **PDF Report Generator**: WeasyPrint converts a Jinja2 HTML template into PDF. The compliance report includes: executive summary, finding table by severity, NIST PQC migration checklist, remediation priority order, CBOM JSON appendix. This is a synchronous operation triggered on demand; it does not go through the job queue.
 
@@ -159,7 +265,8 @@ CREATE TABLE findings (
     severity         TEXT NOT NULL,  -- 'critical'|'high'|'medium'|'low'
     confidence       REAL,           -- 0.0–1.0 from cbomkit
     context_label    TEXT,           -- 'JWT signing'|'TLS handshake'|'Key generation'
-    raw_match        TEXT            -- the matched code snippet (never logged externally)
+    raw_match        TEXT,           -- opt-in per tenant only (rev 1.1, A39)
+    snippet_hash     TEXT            -- stored by default instead of the snippet
 );
 
 -- CBOM snapshots (full CycloneDX JSON per scan)
@@ -199,7 +306,7 @@ Railway services:
 - `web`: FastAPI + uvicorn (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`)
 - `worker`: ARQ worker (`python -m arq app.worker.WorkerSettings`)
 - `redis`: Railway Redis plugin (built-in)
-- Persistent volume mounted at `/data/quantsiv.db` (SQLite file)
+- ~~Persistent volume mounted at `/data/quantsiv.db` (SQLite file)~~. Revised 1.1 (A51): a Railway volume attaches to one service only, so web and worker cannot share a SQLite file. Use Railway Postgres (`DATABASE_URL`) from day one, in an EU region.
 
 Dockerfile base: `python:3.12-slim` with `openjdk-17-jre-headless` added via `apt-get`. The cbomkit-lib JAR ships inside the image at `/app/bin/cbomkit-lib.jar`. Total image size target: under 800MB.
 
@@ -207,7 +314,7 @@ Environment variables stored in Railway's secret manager: `GITHUB_APP_PRIVATE_KE
 
 **Migration trigger: move to Render when any of these happen:**
 - Monthly Railway bill exceeds $80 (scale-up signal)
-- First enterprise prospect asks for SOC 2 compliance documentation (Render has ISO 27001)
+- First enterprise prospect asks for SOC 2 compliance documentation (verify the hosting provider's current certifications and EU region before citing them)
 - You need managed Postgres with point-in-time recovery
 
 Do not touch AWS until you have two engineers and an operations budget. The operational overhead is not justified for a solo founder below $10k MRR.
@@ -224,36 +331,47 @@ Do not touch AWS until you have two engineers and an operations budget. The oper
    - POST https://api.github.com/app/installations/{id}/access_tokens
    - Receive token (1-hour TTL) — never written to DB
 
-4. Clone repository to /tmp/{scan_id}/:
-   git clone https://x-access-token:{token}@github.com/{repo}.git /tmp/{scan_id}/
-   Timeout: 60 seconds. Repos over 500MB: clone with --depth 1
+4. Clone repository to /tmp/{scan_id}/  (REVISED 1.1, A15/A16; hosted path = public repos only)
+   NEVER put the token in the URL. Pass it via env, never argv:
+     GIT_CONFIG_COUNT=1
+     GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+     GIT_CONFIG_VALUE_0="Authorization: Basic base64(x-access-token:{token})"
+   git -c core.symlinks=false -c core.hooksPath=/dev/null \
+       -c protocol.allow=never -c protocol.https.allow=always \
+       clone --depth=1 --single-branch --no-tags --no-recurse-submodules \
+       -- https://github.com/{repo}.git /tmp/{scan_id}/
+   Before cloning, check `size` (KB) via GET /repos/{owner}/{repo}. Timeout 120 s.
+   Delete .git before scanning. Show users only a generic error message.
 
-5. Run cbomkit-lib source code scan:
-   java -jar /app/bin/cbomkit-lib.jar scan \
-     --input /tmp/{scan_id}/ \
-     --output /tmp/{scan_id}/cbom.json \
-     --format cyclonedx-json
-   Timeout: 120 seconds. Parse exit code; on non-zero, mark scan failed with error_message.
+5. Run the source-code engine  (REVISED 1.1, A27, decision D2)
+   cbomkit-lib is a Java LIBRARY (Java + Python only), not a CLI. Either wrap it in a small
+   pinned Java main (a fat jar), or ingest the CBOM from CBOMkit's CI tooling run in the
+   customer's pipeline after their build. Run it with a timeout, memory limits and no network.
 
 6. Parse CycloneDX CBOM JSON output:
    - For each component where type = 'cryptographic-asset':
      - Extract: algorithm name, key size, primitive type, file location, line number
-     - Classify as quantum-safe or not:
-       Quantum-safe: ML-KEM (Kyber), ML-DSA (Dilithium), SLH-DSA (SPHINCS+), AES-256, ChaCha20
-       Quantum-vulnerable: RSA (any key size), ECDSA, ECDH, DH, DSA, AES-128 (borderline)
-     - Assign severity:
-       critical: RSA/ECDSA in auth/signing/token paths
-       high: RSA/ECDSA/DH in key exchange or encryption paths
-       medium: weak TLS cipher suite, deprecated curve
-       low: hash-only usage, informational
+     - Classify as quantum-safe or not  (REVISED 1.1, A30):
+       Quantum-safe: ML-KEM, ML-DSA, SLH-DSA, and symmetric primitives with >=128-bit security
+         (AES-128/192/256, ChaCha20); NIST IR 8547 ipd: these meet Category 1
+       Quantum-vulnerable: RSA (any size), ECDSA, EdDSA, ECDH/X25519, DH, DSA
+     - Assign severity by CycloneDX primitive and declared data lifetime  (REVISED 1.1, A53):
+       critical: key-agree / kem / pke protecting data whose confidentiality lifetime
+                 outlasts the threat horizon (HNDL)
+       high:     key-agree / kem / pke otherwise; long-lived signing roots
+                 (code/firmware signing, CA keys)
+       medium:   short-lived signatures (e.g. session tokens); weak TLS configuration
+       low:      informational
      - Add context_label from file path heuristics:
        */auth/* or */jwt/* → 'Authentication signing'
        */tls/* or */ssl/* → 'Transport encryption'
        */payment/* or */crypto/* → 'Data encryption'
 
-7. Detect domains from config files:
-   Scan for hostnames in .env, config.yaml, application.properties, .env.example
-   Queue TLS scan for each detected domain
+7. Detect domains from config files  (REVISED 1.1, A17)
+   Scan for hostnames in .env, config.yaml, application.properties, .env.example.
+   Detected hostnames are only SUGGESTIONS for the user. A full TLS scan runs only for domains
+   the customer has verified (DNS TXT record). Every target goes through resolve_scan_target():
+   internal names blocked, public IPs only, port 443, connect to the vetted IP with SNI.
 
 8. Run TLS scan via sslyze (if domains detected or scan_type includes 'tls'):
    scanner = Scanner()
@@ -295,18 +413,20 @@ Target: **under 5 minutes** from landing page to first scan result displayed.
 
 The landing page has one CTA above the fold: **"Scan your codebase for quantum-vulnerable cryptography — free, no credit card."**
 
-Below the CTA: a live counter ("3,842 repos scanned, 41,203 vulnerabilities found") and a static screenshot of the findings dashboard showing RSA-2048 findings with file paths. No feature list, no pricing table, no testimonials on the first scroll.
+Below the CTA: a live counter showing **real** aggregate numbers only, and only once they exist (revised 1.1, A29; the example figures "3,842 repos scanned, 41,203 vulnerabilities found" were illustrative), plus a screenshot of the findings dashboard labelled as a demo of a public repository. No feature list, no pricing table, no testimonials on the first scroll.
 
 Headline: **"Find quantum-vulnerable cryptography before your adversaries do."**
-Sub-headline: "NIST finalized PQC standards in August 2024. Harvest-now-decrypt-later attacks are active today. Quantsiv scans your codebase in 90 seconds."
+Sub-headline: "NIST finalized PQC standards in August 2024. Adversaries can record encrypted traffic today and decrypt it later. Quantsiv inventories the cryptography in your codebase, inside your own pipeline." (Revised 1.1: no time claim until it is measured.)
 
 ### Step 2 — GitHub OAuth (0:30)
 
 Click "Start free scan" → GitHub OAuth. Requests only: read user profile + email addresses. No repository access at this step — requesting repo access on the OAuth screen triggers fear. Repository access comes at the GitHub App installation step, which follows immediately.
 
-On OAuth callback: create user record, set `plan='free'`, issue session JWT. Redirect to `/onboarding/connect`.
+On OAuth callback: create user record, set `plan='free'`, and start a server-side session: an opaque session ID in an `HttpOnly; Secure; SameSite=Lax` cookie, or Starlette's SessionMiddleware (rev 1.1, A14; no long-lived JWT). Redirect to `/onboarding/connect`.
 
 ### Step 3 — Connect a Repository (1:00)
+
+(Revised 1.1, D1: the hosted-clone flow below applies to public repositories and the demo only. The primary onboarding is "Add one step to your CI" with the local scanner; see §1.)
 
 The `/onboarding/connect` page shows the GitHub App installation CTA:
 
@@ -356,7 +476,7 @@ your-org/your-repo    Risk Score: 73/100 (HIGH)    7 critical  |  12 high  |  4 
 
 | Severity | Algorithm | Location | Key Size | Context | Fix |
 |---|---|---|---|---|---|
-| CRITICAL | RSA | auth/jwt.py:47 | 2048-bit | Token signing | View fix |
+| MEDIUM | RSA | auth/jwt.py:47 | 2048-bit | Token signing (short-lived signature; rev 1.1, A53) | View fix |
 | CRITICAL | RSA | payment/encrypt.py:23 | 2048-bit | Data encryption | View fix |
 | HIGH | ECDSA | api/auth.py:91 | P-256 | Request signing | View fix |
 
@@ -365,9 +485,7 @@ Clicking a row expands to show: exact code snippet (3 lines of context), plain-E
 **Right sidebar:**
 ```
 NIST PQC Compliance
-[====          ] 12% migrated
-
-0 of 19 findings use PQC algorithms
+0 of 19 findings use PQC algorithms    (demo data, labelled as such; rev 1.1 removed the "% migrated" bar)
 
 [Generate Compliance Report]
 (Requires Developer plan — €99/mo)
@@ -381,7 +499,7 @@ The upgrade prompt fires at the first natural limit hit, not immediately on resu
 - User clicks "Scan another repo" → modal referencing their current repo count
 - User clicks "Add to CI/CD" → modal
 
-**Generic upgrade prompts convert at 2–3%. Findings-personalized prompts convert at 8–12%.**
+**Hypothesis to measure: findings-personalized upgrade prompts convert better than generic ones.** (Rev 1.1 removed the unsourced 2-3% and 8-12% figures.)
 
 ---
 
@@ -392,11 +510,11 @@ The upgrade prompt fires at the first natural limit hit, not immediately on resu
 The aha moment is: **a developer sees their own file path and their own function name labeled as quantum-vulnerable, with a timeline for when it becomes a real threat.**
 
 Not: "you have crypto issues."
-Yes: "auth/jwt.py:47 uses RSA-2048 for token signing — exploitable by Shor's algorithm on a fault-tolerant quantum computer, estimated 2030–2035. Harvest-now-decrypt-later attacks can target this today."
+Yes: "auth/jwt.py:47 uses RSA-2048 for token signing. A cryptographically relevant quantum computer could forge these signatures; migrate to ML-DSA (FIPS 204) before EO 14412's 31 Dec 2031 signature deadline." For a key-exchange finding, add: "Traffic recorded today could be decrypted later (harvest now, decrypt later)." (Rev 1.1: no invented dates, and no HNDL claims on signatures.)
 
 Three design decisions that engineer this moment:
 
-1. **The first finding shown is always the most critical, most contextual one.** If there is an RSA key in a file path containing `auth`, `jwt`, `login`, or `payment` — that is shown first. Ranking algorithm: `file_path ILIKE ANY ('%auth%', '%jwt%', '%login%', '%payment%', '%crypto%', '%sign%')`.
+1. **The first finding shown is always the most critical, most contextual one.** If there is an RSA key in a file path containing `auth`, `jwt`, `login`, or `payment` — that is shown first. Ranking (rev 1.1, A53): by CycloneDX primitive and declared data lifetime. Path keywords (`auth`, `jwt`, `login`, `payment`, `crypto`, `sign`) only break ties.
 
 2. **The real-time counter during scanning** sets anticipation. By the time the results page loads, the user already expects to see a real report.
 
@@ -406,13 +524,27 @@ Three design decisions that engineer this moment:
 
 All emails sent from `ludo@quantsiv.io` (founder's personal address), plain-text, no HTML. Deliverability is higher, developer response rate is higher.
 
+**Compliance (revision 1.1, A36):**
+- **Classification.** Day 0 and Day 2 are service emails. Days 1, 3, 5 and 7 are marketing.
+- **Who may receive marketing emails.** Send them only with consent, or under the
+  existing-customer soft opt-in (ePrivacy Directive Art. 13(2); NL Telecommunicatiewet
+  art. 11.7). Offer an opt-out at signup and in every message.
+- **Footer on every marketing email:**
+  - an unsubscribe link;
+  - the legal entity's name and postal address (CAN-SPAM, 15 U.S.C. 7704(a)(5), for US
+    recipients).
+- **Headers on every marketing email:**
+  - `List-Unsubscribe`;
+  - `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058).
+- **Content.** Every factual claim needs a source. Never imply data about other customers.
+
 **Day 0 — "Your scan is running" (send immediately on signup)**
 ```
 Subject: Your quantum risk scan is running
 
 Hi {first_name},
 
-Your scan of {repo_name} is running now. It takes about 90 seconds.
+Your scan of {repo_name} is running now. We'll email you when the results are ready.
 
 View your results here: https://quantsiv.io/dashboard/scans/{scan_id}
 
@@ -426,25 +558,24 @@ NIST finalized post-quantum standards in August 2024. The clock is running.
 
 **Day 1 — Activation nudge (only if `first_scan_completed = FALSE` at 24h)**
 ```
-Subject: It takes 90 seconds — here's what others found
+Subject: Run your first Quantsiv scan
 
 Hi {first_name},
 
-You signed up for Quantsiv yesterday but haven't connected a repo yet.
+You signed up for Quantsiv yesterday but haven't run a scan yet.
 
-Click here, authorize GitHub, and Quantsiv scans your most recently
-pushed repo automatically.
+Add one step to your CI (copy-paste snippet) and your next build
+produces a cryptographic inventory:
 
 https://quantsiv.io/onboarding/connect
 
-What developers typically find:
+What scans commonly flag:
 - RSA-2048 keys in authentication flows
 - ECDSA signing in payment APIs
 - DHE key exchange in TLS configs
 
-All of these are broken by Shor's algorithm. All in production today.
-
-Takes 90 seconds. No config required.
+Each of these would be broken by Shor's algorithm on a future
+cryptographically relevant quantum computer.
 
 — Ludo
 ```
@@ -462,10 +593,10 @@ in {repo_name}. Here are the three most critical:
 2. {top_finding_2_location} — {top_finding_2_algorithm}, {top_finding_2_context}
 3. {top_finding_3_location} — {top_finding_3_algorithm}, {top_finding_3_context}
 
-These algorithms are broken by Shor's algorithm. Timeline: 2030–2035.
-
-"Harvest now, decrypt later" means adversaries are collecting your
-encrypted traffic today.
+These algorithms would be broken by Shor's algorithm on a future
+quantum computer. For the key-exchange and encryption findings,
+"harvest now, decrypt later" applies: traffic captured today could be
+decrypted later. Signature findings face future forgery instead.
 
 View your full report: https://quantsiv.io/dashboard/scans/{scan_id}
 
@@ -474,19 +605,22 @@ View your full report: https://quantsiv.io/dashboard/scans/{scan_id}
 
 **Day 3 — Education + urgency (send to all users)**
 ```
-Subject: EO-14412 mandated US government PQC migration in June 2026
+Subject: EO 14412 set federal PQC deadlines in June 2026
 
 Hi {first_name},
 
 Three things happened recently that affect your codebase:
 
 1. NIST finalized ML-KEM, ML-DSA, and SLH-DSA as the official post-quantum
-   cryptography standards in August 2024.
+   cryptography standards in August 2024 (FIPS 203/204/205).
 
-2. Executive Order 14412 (June 2026) mandated that US government agencies
-   and their contractors migrate to PQC algorithms.
+2. Executive Order 14412 (22 June 2026) requires federal high-value and
+   high-impact systems to use PQC key establishment by 31 Dec 2030 and PQC
+   signatures by 31 Dec 2031, and directs a FAR rule bringing covered
+   contractors to FIPS compliance by 31 Dec 2030.
 
-3. Only ~5% of enterprises have assessed their quantum cryptography risk.
+3. The EU's coordinated PQC roadmap (June 2025) asks for high-risk use
+   cases to be migrated by end-2030, starting with an inventory.
 
 If your product handles financial data, health records, or government
 contracts — your security team will need a quantum risk assessment before
@@ -499,17 +633,18 @@ https://quantsiv.io/dashboard
 
 **Day 5 — Compliance report + team expansion (activated users only)**
 ```
-Subject: Your compliance report is ready to share with your security team
+Subject: Share your Quantsiv results with your security team
 
 Hi {first_name},
 
-The Quantsiv findings for {repo_name} are formatted as a
-NIST PQC Migration Readiness Report.
+The Quantsiv findings for {repo_name} can be exported as a
+PQC migration readiness report (Developer plan).
 
 The report includes:
 - Algorithm inventory
 - Quantum vulnerability assessment per finding
-- NIST SP 800-208 migration checklist
+- Migration checklist mapped to NIST IR 8547 (draft) and OMB M-26-15
+  (NB: NIST SP 800-208 covers LMS/XMSS signatures; it is not a migration checklist)
 - CycloneDX CBOM
 - Remediation priority order
 
@@ -532,7 +667,7 @@ Subject: 15 minutes — I'll scan your repo live on a call
 
 Hi {first_name},
 
-I'm offering 15-minute setup calls for the first 50 users. I'll share
+I'm offering 15-minute setup calls (only say "for the first 50 users" if that cap is real and enforced). I'll share
 my screen, walk you through connecting your repo, and show you what
 Quantsiv finds. No sales pitch.
 
@@ -543,7 +678,8 @@ Book here: https://cal.com/ludo-quantsiv/15min
 
 For activated users not yet converted:
 ```
-Subject: Scanning {total_repos_scanned} repo — your next 4 are free with Developer
+Subject: Scan the rest of your repositories with Quantsiv
+(rev 1.1: pricing on hold under D5; the plan list below is v1.0 history)
 
 Hi {first_name},
 
@@ -552,8 +688,8 @@ You've scanned {repo_name} with Quantsiv. Found {total_findings} findings.
 The Developer plan (€99/month) unlocks:
 - Unlimited repositories
 - Compliance PDF export
-- CI/CD GitHub Action
 - Scheduled weekly scans
+(rev 1.1: the CI step is free for everyone, so it is not a paid unlock)
 
 https://quantsiv.io/upgrade
 
@@ -563,6 +699,8 @@ https://quantsiv.io/upgrade
 ---
 
 ## 6. Payment Model
+
+> **On hold (rev 1.1, decision D5).** The tiers and prices below are the v1.0 draft, kept for history. The proposed packaging is in `quantsiv.md`, "Pricing": free scanner, fixed-fee assessment, Supplier tier, annual Organisation subscription, and Enterprise self-hosted. Do not implement these prices. The engineering requirements here still apply: plan allow-list, `construct_event`, renewal disclosure, and EU VAT.
 
 ### Exact Tier Structure
 
@@ -574,7 +712,7 @@ https://quantsiv.io/upgrade
 | **Seats** | 1 | 3 | 15 | Custom |
 | **Scan trigger** | Push only | Push + scheduled | Push + scheduled | Push + scheduled + API |
 | **Compliance PDF export** | No | Yes | Yes | Yes + custom branding |
-| **CI/CD GitHub Action** | No | Yes | Yes | Yes |
+| **CI/CD GitHub Action** | Yes (rev 1.1: the scanner and CI templates are free, D1) | Yes | Yes | Yes |
 | **SARIF upload** | No | Yes | Yes | Yes |
 | **API access** | No | No | Yes | Yes |
 | **SSO/SAML** | No | No | No | Yes |
@@ -609,13 +747,17 @@ Prices:
   team-annual:          €2,868.00 EUR, recurring yearly (= €239/mo)
 ```
 
-**Checkout Session Endpoint:**
+**Checkout Session Endpoint** (revised 1.1, A22: the client sends a plan name and the server maps it to a price; a client-supplied price ID would let a user pick any active price):
 ```python
+class CheckoutRequest(BaseModel):
+    plan: Literal["developer-monthly", "developer-annual", "team-monthly", "team-annual"]
+
 @router.post("/api/billing/checkout")
 async def create_checkout_session(
-    price_id: str,
+    body: CheckoutRequest,
     user: User = Depends(current_user)
 ):
+    price_id = settings.stripe_prices[body.plan]   # server-side allow-list
     session = stripe.checkout.Session.create(
         customer=user.stripe_customer_id or None,
         line_items=[{"price": price_id, "quantity": 1}],
@@ -638,7 +780,7 @@ async def create_checkout_session(
 # invoice.payment_failed → send payment failure email, show banner in dashboard
 ```
 
-Verify every webhook with HMAC-SHA256. Reject any webhook that fails verification.
+Verify every webhook with `stripe.Webhook.construct_event` (signature plus timestamp tolerance), and reject any that fails. Derive `user.plan` from the subscription's price ID, never from client data.
 
 **Customer Portal:**
 ```python
@@ -649,7 +791,13 @@ session = stripe.billing_portal.Session.create(
 return redirect(session.url)
 ```
 
-**Annual vs Monthly UI**: Default pricing page toggle to "Annual." Show savings in euros, not percentage: "Save €240/year" not "Save 20%."
+**Annual vs Monthly UI**: Default pricing page toggle to "Annual." Show savings in euros, not percentage: "Save €240/year" not "Save 20%." (Revised 1.1, A37: next to the subscribe button, show:
+- the amount charged today (e.g. "€948 billed today");
+- whether VAT is included;
+- "renews automatically every 12 months";
+- how to cancel.
+
+Pricing itself is on hold under decision D5; see `quantsiv.md`, "Pricing".)
 
 **Enterprise tier**: No Stripe Checkout. Manual Stripe invoices or wire transfer. Implement metered billing only when you have three enterprise customers with different repo counts.
 
@@ -659,7 +807,7 @@ return redirect(session.url)
 
 1. Enable Stripe Tax: Settings → Tax → Add Netherlands origin address.
 2. Enable `tax_id_collection: {"enabled": True}` in Checkout (already in code above). EU B2B customers enter their VAT number — Stripe validates via VIES and zero-rates automatically.
-3. Register for EU OSS (One Stop Shop) at belastingdienst.nl within 30 days of first EU B2C sale. Quarterly returns: Jan/Apr/Jul/Oct.
+3. EU OSS (One Stop Shop) registration at belastingdienst.nl is needed only for B2C sales. Quantsiv sells B2B only (rev 1.1), so this applies only if that changes. If it does, register within 30 days of the first EU B2C sale; returns are quarterly (Jan/Apr/Jul/Oct).
 4. US customers: Stripe Tax handles state sales tax automatically. Economic nexus thresholds don't trigger until $100k+ revenue in most states.
 
 **Common mistake to avoid**: Not collecting VAT numbers at checkout means you charge VAT to EU B2B customers entitled to zero-rating. They will dispute the charge.
@@ -711,12 +859,15 @@ Setup in 3 steps: create API token in dashboard → add as GitHub secret → add
 
 ### Read-Only Share Links
 
-Generate signed share token for any scan result: `https://quantsiv.io/dashboard/scans/{id}/share/{token}`. HMAC-signed with 7-day expiry. Lets developers share results with a CISO or auditor without giving them a Quantsiv account. High-value for enterprise sales motion.
+Generate a share token for any scan result: `https://quantsiv.io/dashboard/scans/{id}/share/{token}`. It expires after 7 days. Lets developers share results with a CISO or auditor without giving them a Quantsiv account. High-value for enterprise sales motion. (Revised 1.1, A23:
+- the token is a random 32-byte value, stored hashed in `share_links` (`scan_id`, `expires_at`, `revoked_at`), so it is revocable and scoped to one scan;
+- `/share/` paths are masked in access logs;
+- share pages send `Referrer-Policy: no-referrer`.)
 
 ### Support Model at MVP Stage
 
 **Phase 1 (0–50 customers, weeks 1–12):**
-- Intercom chat widget on dashboard and landing page (Starter: $39/month)
+- Intercom chat widget on the dashboard only, loaded after cookie consent and listed as a subprocessor (rev 1.1, A38; the landing page stays free of third-party scripts)
 - Founder responds personally within 4 hours during NL business hours
 - Every support conversation tagged by theme — this is product research
 
@@ -767,7 +918,7 @@ Do not use Discord. Security professionals work in Slack.
 - Implement plain-English context labels (file path heuristics)
 - Add Java and Go scanning
 
-**Ships**: Full scan pipeline produces CBOM JSON + risk score across Python, Java, Go.
+**Ships**: Full scan pipeline produces CBOM JSON + risk score across Java and Python. (Revision 1.1: CBOMkit has no Go support, so Go is deferred.)
 
 ### Week 4 — Dashboard: Findings Table
 **Goal**: A developer can see their scan results in a browser.
@@ -863,6 +1014,8 @@ Do not use Discord. Security professionals work in Slack.
 
 ## 9. MVP Success Metrics
 
+*(Historical; see revision 1.1 item 15. The metrics stay useful once self-serve exists.)*
+
 ### Definition of "MVP Succeeded"
 
 By day 90 after first public availability:
@@ -903,6 +1056,8 @@ By day 90 after first public availability:
 
 ## 10. First 90 Days Go-To-Market
 
+*(Historical; see revision 1.1 item 15. The public-launch steps below come after the stealth exit.)*
+
 ### Week 1 — Waitlist Landing Page
 
 - Launch `quantsiv.io` with single-page waitlist: headline + email capture
@@ -935,7 +1090,7 @@ The first paying customer likely comes from: (a) beta user who hit repo limit, (
 ### Week 12 — €1,000 MRR
 
 - Product Hunt launch (coordinate beta users for upvotes)
-- "Show HN" post: lead with the data ("found RSA in 60% of repos tested"), not the product
+- "Show HN" post: lead with the data, not the product (e.g. "found RSA in X% of repos tested", where X is measured on real public repositories, never an illustrative figure)
 - Publish gated PDF: "NIST PQC Migration Checklist for Fintech Startups" — generates leads organically for 6–12 months
 - Begin enterprise outreach to 5 companies: >500 employees + GitHub org with Java/Python + fintech/healthtech/defense contracting
 

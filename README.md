@@ -1,124 +1,68 @@
-# Quantsiv MVP - Quantum Risk Management Platform
+# Quantsiv (app)
 
-A GitHub-native quantum cryptography scanner that detects quantum-vulnerable algorithms (RSA, ECDSA, Diffie-Hellman) in source code and TLS configurations.
+Quantsiv is a post-quantum cryptography (PQC) readiness product. It inventories the
+quantum-vulnerable cryptography in your code and TLS endpoints, ranks it by how long your data
+must stay secret, and produces CycloneDX 1.6 CBOM evidence.
 
-## Overview
+**Status: pre-launch. This repository is a skeleton under active remediation; most of it does
+not run yet.**
 
-Quantsiv scans your codebase, certificates, and cloud infrastructure to find quantum-vulnerable cryptography before it becomes a breach. This MVP implements the core scanning engine, GitHub App integration, web dashboard, and compliance reporting.
+## What is built (single source of truth)
 
-## Features Implemented in MVP
+Only move a row to **Built** when the code is merged and covered by tests.
 
-✅ **GitHub App Installation** - Secure authentication via GitHub OAuth  
-✅ **Source Code Scanning** - AST-level scanning for Python, Java, Go using cbomkit-lib  
-✅ **TLS/Certificate Scanning** - Domain inspection via sslyze  
-✅ **CycloneDX 1.6 CBOM Output** - Standard format for cryptographic bill of materials  
-✅ **Web Dashboard** - Findings table with risk scores and contextual details  
-✅ **Plain-English Risk Descriptions** - Clear explanations like "RSA-2048 in JWT signing — vulnerable to Shor's algorithm by ~2032"  
-✅ **Compliance PDF Report Export** - Gated at Developer tier (€99/month)  
-✅ **GitHub Action for CI/CD** - `quantsiv/scan-action@v1` with SARIF upload  
-✅ **Free Tier** - 1 repository, push-triggered scans (no credit card required)  
-✅ **Developer Tier** - €99/month, unlimited repositories, 3 seats  
-✅ **Team Tier** - €299/month, 15 seats, API access  
-✅ **Stripe Billing** - Subscription management with VAT compliance  
-✅ **Behavioral Email Sequence** - 7-day onboarding and nurturing flow  
+| Capability | Status | Where |
+| --- | --- | --- |
+| FastAPI app serving `/` and `/health` | Prototype: runs locally under uvicorn; no tests, and the Docker build fails (A09) | `app/main.py`, WP1 |
+| Dashboard and scan pages (Jinja2 + htmx) | Prototype templates with placeholder data | WP1, WP2 |
+| GitHub webhook handler | Prototype: not mounted, insecure placeholders | WP3 |
+| Data model (Postgres) and ARQ worker | Not built | WP4 |
+| Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |
+| TLS scanning (sslyze, verified domains only) | Planned | WP5 |
+| CycloneDX 1.6 CBOM output | Reference generator validated against the schema; not yet in the app | WP6 |
+| HNDL scoring from declared data lifetimes, plus a separate signature-deadline track | Planned | WP6 |
+| CBOM import (any CycloneDX 1.6) and export | Planned | WP7 |
+| Agent foundations: read-only policy MCP server for AI coding assistants, gate explainer | Planned; decision D7 | WP10 |
+| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; delivery model is decision D1 | WP7 |
+| Legal pages | Planned; content needs decision D4 | WP8 |
+| Evidence reports (PDF), billing, emails | Planned; requirements are in WP8, pricing needs decision D5 | WP8 |
 
-## Architecture
+## Start here
 
-Based on the MVP specifications, the platform uses:
+- [`CLAUDE.md`](CLAUDE.md): conventions, rules and the session protocol.
+- [`docs/audit/2026-10-03-app-audit.md`](docs/audit/2026-10-03-app-audit.md): audit findings
+  A01-A53.
+- [`docs/audit/REMEDIATION_PLAN.md`](docs/audit/REMEDIATION_PLAN.md): ordered work packages and
+  open decisions.
+- [`quantsiv.md`](quantsiv.md): narrative, regulatory context, delivery model and pricing
+  proposal.
+- [`quantsiv_mvp_spec.md`](quantsiv_mvp_spec.md): the build spec. Read the revision 1.1 block
+  first.
 
-- **Python 3.12 + FastAPI + ARQ + Redis + SQLite** (MVP) → Postgres (production)
-- **cbomkit-lib** (Java JAR) run as subprocess for source code scanning
-- **sslyze** for TLS scanning
-- **cyclonedx-python-lib** for CBOM assembly
-- **HTMX + Alpine.js + Tailwind CSS** for minimal frontend
-- **WeasyPrint** for PDF report generation
-- **SQLite** (MVP) → Postgres (production) database
+## Target architecture
 
-## API Endpoints
+- **Scanner (data plane, customer side).** A `quantsiv scan` container that runs in the
+  customer's CI after their build. It wraps CBOMkit and sslyze plus Quantsiv rules, and writes a
+  CBOM, SARIF and an HNDL report. Source code never leaves the customer.
+- **Control plane (this app).** FastAPI with Jinja2/htmx, ARQ on Redis, and Postgres, hosted in
+  the EU. It handles CBOM ingest, history and diffs, HNDL prioritisation, and evidence packs. It
+  stores metadata only.
+- **Hosted scanning.** Limited to public repositories and the demo, using the hardened clone and
+  SSRF guard described in the audit.
 
-### GitHub Webhooks
-- `POST /webhook/github` - Handle GitHub App events (installation, push, etc.)
+## Development
 
-### Dashboard Routes
-- `GET /` - API root
-- `GET /health` - Health check
-- `GET /dashboard` - Main dashboard (HTML)
-- `GET /dashboard/scans/{id}` - Scan results (HTML)
-- `GET /dashboard/scans/{id}/live` - Live scan progress (HTML)
-- `GET /api/scans/{id}` - Get scan details (JSON)
-- `POST /api/scans` - Trigger manual scan
-- `GET /api/scans/{id}/events` - Server-Sent Events for live progress
+Once WP1 has landed:
 
-### Worker
-- `ScanWorker` class handles the scanning pipeline:
-  1. GitHub installation token generation
-  2. Repository cloning
-  3. Source code scanning (cbomkit-lib)
-  4. TLS domain detection & scanning (sslyze)
-  5. Risk score calculation
-  6. CBOM generation (cyclonedx-python-lib)
-  7. Database persistence
-  8. Cleanup & completion signaling
-
-## Database Schema
-
-The MVP uses SQLite with tables for:
-- `users` (GitHub OAuth authentication)
-- `installations` (GitHub App installations)
-- `scans` (scan jobs and metadata)
-- `findings` (individual cryptographic findings)
-- `cbom_snapshots` (CycloneDX JSON per scan)
-- `tls_scans` (TLS scan results)
-
-## Deployment
-
-### Local Development
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Start worker (in separate terminal)
-python -m arq app.worker.WorkerSettings
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env                       # then fill the values
+uvicorn app.main:app --reload
+python -m arq app.worker.WorkerSettings    # needs REDIS_URL
+pytest
 ```
 
-### Docker
-```bash
-# Build image
-docker build -t quantsiv-mvp .
+## Licence
 
-# Run container
-docker run -p 8000:8000 quantsiv-mvp
-```
-
-### Cloud Deployment (MVP)
-As specified in the docs: **Railway** with services:
-- `web`: FastAPI + uvicorn
-- `worker`: ARQ worker
-- `redis`: Railway Redis plugin
-- `persistent volume`: SQLite file at `/data/quantsiv.db`
-
-## MVP Success Metrics
-
-By day 90 after first public availability:
-1. At least one customer paying €99+/month via pure self-serve
-2. At least three developers reported finding a real quantum-vulnerable call they were previously unaware of
-3. Scan-to-first-result time consistently under 5 minutes for repos under 100k LOC
-4. No security incident involving customer repository data
-
-## Next Steps (Post-MVP)
-
-Based on the roadmap:
-- JavaScript/TypeScript scanning (v1.1)
-- Semgrep-style cross-file dataflow analysis (v2)
-- Container image scanning (v2)
-- Cloud infrastructure scanning (AWS/Azure/GCP) (v2)
-- SAML/SSO authentication (v2)
-- Mobile experience (v2)
-- Enterprise multi-tenant support (v2)
-
-## License
-
-This is the MVP implementation of Quantsiv - Quantum Risk Management Platform.
+This is a private repository and no licence is granted. Do not publish it.
