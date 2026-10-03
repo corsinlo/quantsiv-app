@@ -110,3 +110,4 @@ secrets.json
 tmp/
 temp/
 /tmp/*
+.aider*
