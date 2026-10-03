@@ -79,6 +79,16 @@ sequenced in `docs/audit/REMEDIATION_PLAN.md`.
 15. **Go-to-market (§9, §10).** Superseded by `quantsiv.md`, "Go-to-Market Motion": NDA design
     partners first, then the stealth exit around Q2 2027. §9 and §10 are kept below for
     history.
+16. **Competitive positioning (D6, after the QIZ Security / Wiz review of 2026-10-03).**
+    - **Scoring is dual-track.** HNDL (by declared data lifetime) applies to key establishment
+      and encryption. A separate signature-deadline track covers signatures. Lifetimes are
+      written into the CBOM as a namespaced property.
+    - **The scanner is offline by default.**
+    - **The control plane ingests any schema-valid CycloneDX 1.6 CBOM**, with provenance, and
+      exports plain CycloneDX.
+    - **No runtime or cloud posture inventory.** Ingest it in Phase 3.
+    - Details: `quantsiv.md` ("Posture platforms", "Delivery model") and
+      `docs/audit/REMEDIATION_PLAN.md` (WP6, WP7).
 
 ---
 

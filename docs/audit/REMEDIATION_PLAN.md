@@ -9,7 +9,7 @@ that changes.
   separate PR titled `WPN: ...`. Reference the finding IDs in commit messages.
 - A WP is **done** only when every acceptance check passes in CI. Update the status table in the
   same PR.
-- **BLOCKED** items need a founder decision (D1-D5 below). Do not invent legal entity details,
+- **BLOCKED** items need a founder decision (D1-D6 below). Do not invent legal entity details,
   prices, dates, statistics or regulatory claims. Leave a clearly marked TODO and move on.
 - Never add UI or README copy that claims a capability the code doesn't have. The README's
   status table is the single source of truth for what is built.
@@ -38,6 +38,7 @@ that changes.
 | D3 | Hosting and region | Railway (or Render), EU region, Postgres (not a shared SQLite file, A51) | WP4 deploy |
 | D4 | Legal identity | Entity name, registered address, KvK and VAT numbers, privacy contact email | WP8 content, footer |
 | D5 | Packaging and pricing | To be validated with design partners. The proposals live in `quantsiv.md`, "Pricing". | WP8 pricing display; billing |
+| D6 | Competitive positioning | Complementary to posture platforms (QIZ Security, Wiz for PQC Readiness): export and ingest CycloneDX, build no runtime or cloud inventory before Phase 3, and never use the label "cryptographic posture management". See `quantsiv.md`, "Posture platforms". | Nothing blocked; shapes the WP7 interoperability scope and the copy |
 
 ## Target layout (reached gradually; don't refactor ahead of the WPs)
 
@@ -255,12 +256,21 @@ tests/
       classes and confidentiality lifetimes. The HNDL score uses it; without it, label the score
       "severity score", not "HNDL" (A28).
 - [ ] Remove AES-128 from any "quantum-vulnerable" list (A30).
+- [ ] Make the score dual-track (D6):
+  - **Confidentiality findings** (`key-agree`, `kem`, `pke`) are ranked by declared data
+    lifetime and labelled "HNDL".
+  - **Signature findings** are ranked by deadline (EO 14412's 31 Dec 2031 by default,
+    configurable) and by the trust lifetime of what they sign, and labelled "signature deadline".
+- [ ] Write declared lifetimes into the CBOM as a namespaced property, e.g.
+      `quantsiv:confidentiality-lifetime-years`.
 
 **Acceptance:**
 - `tests/test_cbom.py` passes CycloneDX 1.6 strict validation and contains a
   `cryptographic-asset` component.
 - `tests/test_scoring.py` passes: a `key-agree` finding protecting 25-year data outranks a
   short-lived token signature.
+- A code-signing finding is never labelled HNDL.
+- The lifetime property survives a CBOM round-trip through strict 1.6 validation.
 
 ## WP7 - Local runner and CBOM ingest (D1)
 **BLOCKED until D1 is confirmed by the founder.**
@@ -275,6 +285,18 @@ tests/
 - [ ] `POST /api/v1/cbom`: org-token authenticated, CBOM JSON only (no source). It is
       validated against the 1.6 schema, stored per scan, and diffed against the previous scan.
 - [ ] Gate PRs on the CBOM **delta** (new vulnerable crypto), not the absolute count.
+- [ ] **Offline by default** (D6): no network call and no token are needed to write the CBOM,
+      SARIF and report. Upload happens only with an organisation token.
+- [ ] **Measure time-to-value:** record in the scanner output the time from the CI step starting
+      to the first CBOM, so it can be reported per design partner.
+- [ ] **Import any CBOM** (D6): `POST /api/v1/cbom` accepts any schema-valid CycloneDX 1.6
+      CBOM, not only Quantsiv's, and stores the producing tool (`metadata.tools`) as provenance.
+- [ ] **Export endpoint:** returns the stored estate CBOM as plain CycloneDX 1.6 JSON.
+
+**Acceptance (WP7):**
+- A CBOM produced by CBOMkit's GitHub Action ingests and diffs cleanly.
+- The scanner runs to completion with networking disabled.
+- The export validates against the CycloneDX 1.6 schema.
 
 ## WP8 - Legal and privacy surfaces (A33-A40)
 - [ ] `routers/legal.py` (audit section 7) with templates under `templates/legal/`. Until D4 is

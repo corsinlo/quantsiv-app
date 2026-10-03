@@ -20,7 +20,7 @@ The app is a skeleton and **nothing runs yet**:
 The full audit is in [`docs/audit/2026-10-03-app-audit.md`](docs/audit/2026-10-03-app-audit.md)
 (findings A01-A53). The work plan is
 [`docs/audit/REMEDIATION_PLAN.md`](docs/audit/REMEDIATION_PLAN.md) (work packages WP0-WP9 and
-decisions D1-D5).
+decisions D1-D6).
 
 ## Session protocol (cloud or local)
 
@@ -32,7 +32,7 @@ decisions D1-D5).
 3. Before opening the PR, run all of these:
    `ruff check . && ruff format --check . && pytest && pip-audit -r requirements.txt`
 4. In the same PR, tick the checkboxes and update the WP's row in the status table.
-5. When you reach a decision D1-D5 or anything marked **BLOCKED**, stop and ask. Never invent
+5. When you reach a decision D1-D6 or anything marked **BLOCKED**, stop and ask. Never invent
    legal entity details, prices, dates, statistics, regulatory requirements or customer names.
 
 ## Commands (once WP1 has landed)
@@ -90,6 +90,12 @@ pytest
 - **Server-side cloning is for public repos and demos only.** The spec's GitHub App flow is
   kept for those and nothing else.
 - **B2B only.** See `quantsiv.md`, "Delivery model".
+- **Positioning (decision D6).** Quantsiv is *cryptographic change control and CBOM evidence*,
+  complementary to posture platforms (QIZ Security, Wiz for PQC Readiness):
+  - Export and ingest plain CycloneDX.
+  - Build no runtime or cloud inventory before Phase 3.
+  - Scoring is dual-track: HNDL by data lifetime, plus a separate signature-deadline track.
+  - Never call the product "cryptographic posture management".
 
 ## Rules
 

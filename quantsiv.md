@@ -115,6 +115,13 @@ primary source.
   it.
 - **Other national guidance to track:** BSI (DE), ANSSI (FR), NCSC (UK) and ETSI.
 
+**Industry signals.** These are company migration targets, not regulation or Q-Day forecasts:
+- Google set 2029 as its own PQC migration target (25 Mar 2026).
+- Cloudflare targets 2029 for full post-quantum security, including authentication
+  (7 Apr 2026).
+
+The industry is moving faster than the federal 2030/2031 dates, especially on signatures.
+
 **The wedge for Quantsiv:** EO 14412 makes CBOM minimum elements a federal deliverable due around
 March 2027, and M-26-15 says agencies' automated inventories should populate a central CBOM.
 Quantsiv is **built to** emit CycloneDX 1.6 CBOMs. A reference generator passes CycloneDX 1.6
@@ -176,8 +183,15 @@ there is no subdomain enumeration of third-party assets. Flags:
 - Public-facing vs. internal classification
 
 ### 3. Cloud Infrastructure Scanner (Phase 3)
-Read-only connectors running in the customer's own cloud account under their IAM role. Quantsiv
-never holds cloud credentials. Checks:
+**Ingest first, build second.** Before writing any cloud connectors, import the cloud
+cryptographic inventory customers already have:
+- Wiz's inventory export, for Wiz customers;
+- Google Cloud KMS "PQC insights";
+- CycloneDX CBOMs from other tools.
+
+Wiz and QIZ already cover runtime cloud inventory, so build Quantsiv's own read-only connectors
+only where no import exists. They run in the customer's own cloud account under their IAM role,
+and Quantsiv never holds cloud credentials. Checks:
 - S3 bucket encryption algorithms
 - RDS database encryption keys
 - Lambda function signing certificates
@@ -192,8 +206,22 @@ Prioritises findings by:
   (Mosca-style), not by algorithm name. Without a declaration the score is labelled "severity",
   never "HNDL".
 - **Exposure:** a public-facing API versus an internal service.
+- **Signature deadline (a second, separate track).** Signature findings (code signing, JWT, PKI)
+  are ranked by obligation date and by how long what they sign must stay trusted.
+  - EO 14412 requires PQC signatures on high-value and high-impact systems by 31 Dec 2031.
+  - Google set 2029 as its own PQC migration target (25 Mar 2026).
+  - Cloudflare targets 2029 for full post-quantum security "including, crucially, post-quantum
+    authentication" (7 Apr 2026).
+  - These are company targets, not Q-Day forecasts.
 
-Output: an ordered migration backlog, not a flat list.
+  Only the confidentiality track is labelled HNDL. Wiz, for comparison, ranks signatures
+  "long-term".
+- **Portability.** Declared lifetimes are written into the CBOM as a namespaced property (e.g.
+  `quantsiv:confidentiality-lifetime-years`), so the ranking travels with the artifact into any
+  platform that imports it.
+
+Output: an ordered migration backlog, not a flat list. The default view is a short top-N list,
+with the full CBOM behind it.
 
 ### 5. CI/CD Integration
 The same scanner container runs in GitHub Actions, GitLab CI, Jenkins (as a container step) and
@@ -238,21 +266,50 @@ These validate the technical approach, and they also mean "we emit a CBOM" is no
 | Keyfactor + IBM Consulting | Joint quantum-safe transformation offering (Jan 2026) | Consulting-led enterprise programmes |
 | AppViewX AVX ONE, TYCHON | PKI-focused / government-focused | Enterprise pricing, long cycles |
 
+Platform vendors added PQC inventory in 2026 as well. Palo Alto Networks' Quantum-Safe Security
+(GA Jan 2026) offers a CBOM and a cipher-translation proxy. IBM Guardium Quantum Safe ingests
+CBOMs, Entrust added CBOM import/export (Sep 2026), and CrowdStrike lists PQC readiness as a use
+case.
+
+### Posture platforms (funded, closest comparables; reviewed 2026-10-03)
+
+The full brief is local and confidential (`docs/COMPETITORS.md`, outside this repo).
+
+| Player | What it is (sourced) | Where it stops in public material |
+|---|---|---|
+| **QIZ Security** | "Cryptographic Posture Management": API-first and agentless, selling to large regulated enterprises and federal buyers. $17M seed on 9 Jul 2026, co-led by Bessemer and Merlin Ventures. Founded 2025 by Ben Volkow and Lenny Ridel (Traffix, acquired by F5 for $133.7M in 2012) and Dr. Itan Barmes (ran Deloitte's global quantum cyber-readiness practice). Remediation through SafeLogic's FIPS 140-3 libraries; listed on Google Cloud Marketplace | No CycloneDX CBOM, no CI/merge gate, no data-lifetime scoring, no self-hosted or zero-egress option, no published pricing, no supplier CBOM exchange. Its investors name DORA, NIS2 and the CRA, but its site has no EU content |
+| **Wiz for PQC Readiness** | GA 18 May 2026, "for all Wiz customers" (including FedRAMP High). Covers cloud KMS, load balancers and API gateways, public TLS/SSH endpoints, certificates and SSH keys, and libraries in container images. Adds CLI/CI configuration guardrails and an IDE extension. Wiz has been part of Google Cloud since 11 Mar 2026 ($32B) | Only for Wiz customers. No CycloneDX CBOM named, no PQC remediation or PRs, no data-lifetime model, and signature migration ranked "long-term" |
+
+**How they won** (lessons we apply in Go-to-Market):
+- **QIZ:** repeat founders plus a Deloitte practice turned into product; ecosystem proof before the
+  round; a category named with an Axonius/Wiz analogy; one dated regulation (EO 14412) as the
+  anchor.
+- **Wiz:** agentless time-to-value; prioritisation instead of alert lists; a research-led brand.
+
 ### The gap
 
-The middle layer is CI-native, zero-source-egress, HNDL-prioritised CBOM evidence for EU
-regulated mid-market organisations and software suppliers. It needs to be self-hostable, and it
-has to sit between the free detectors and the enterprise platforms. Export CBOMs into those
-platforms rather than fighting them.
+The open layer sits between the free detectors, the enterprise platforms and the new posture
+platforms. It is CI-native, zero-source-egress **cryptographic change control** with
+HNDL-prioritised, standards-conformant CBOM evidence, built for EU regulated mid-market
+organisations and their software suppliers, and self-hostable. As of 2026-10-03, neither QIZ nor
+Wiz publicly documents any of these:
+- a CycloneDX CBOM;
+- scoring by how long data must stay confidential;
+- a merge gate on new vulnerable cryptography;
+- supplier CBOM exchange.
+
+Wiz serves only Wiz customers, and QIZ sells demo-led to large enterprises. Export CBOMs into
+those platforms, and ingest theirs, rather than fighting them.
 
 Security scanning in 2015 had the same structure: open-source tools existed, enterprise players
 existed, and nothing in between served the developer who wanted a CI step and a dashboard. Snyk
 built a multi-billion-dollar business in that gap. (It was not sold to Broadcom; avoid that
 claim.)
 
-**Quantsiv is not inventing the scanner. It wraps open detectors and sells what they lack:
-data-lifetime prioritisation, change control on cryptography, regulator-mapped evidence, and
-supplier CBOM exchange.**
+**Quantsiv is not inventing the scanner, and it does not compete for runtime inventory. It wraps
+open detectors and sells what detectors and posture platforms lack: data-lifetime and
+signature-deadline prioritisation, change control on cryptography, regulator-mapped CBOM evidence,
+and supplier CBOM exchange.**
 
 ### The broader "wrapper" ecosystem — not competitors, upstream customers
 
@@ -340,9 +397,25 @@ estate to inventory and no deadline that forces a purchase.
   - Validation suites run on every change, a human approves it, and nothing is ever
     auto-merged.
 
+- **Interoperability (neutral by design).**
+  - **Export.** Every CBOM is plain CycloneDX 1.6 JSON plus SARIF, so any platform that imports
+    CycloneDX can consume it. Name a specific consumer only after a tested round-trip.
+  - **Import.** The control plane accepts any schema-valid CycloneDX 1.6 CBOM, not only
+    Quantsiv's, and records the producing tool. CBOMkit, supplier and third-party CBOMs then land
+    in one estate graph.
+  - **Posture platforms (QIZ, Wiz).** Neither publishes a CBOM ingest interface (checked
+    2026-10-03). Revisit when one does or a design partner asks.
+- **Offline by default.** The scanner writes a CBOM, SARIF and a report with no account and no
+  network call. Upload happens only with an organisation token. Time from adding the CI step to
+  the first CBOM is measured and reported.
+- **Category name.** "Cryptographic change control and CBOM evidence", the "Snyk for
+  cryptography" layer that feeds posture platforms. Never "cryptographic posture management":
+  that is QIZ's category phrase.
+
 **Not doing:**
 - Cloning customers' private repos into our infrastructure. That stays for public repos and
   demos only.
+- Runtime or cloud posture inventory that competes with Wiz or QIZ. Ingest it instead (Phase 3).
 - A native Jenkins plugin before a paying customer needs one. The container step covers Jenkins.
 - An IDE extension before the CI signal has proven precise.
 - A hosted service that holds customer keys.
@@ -387,6 +460,31 @@ as a hosted monolith.
   - EU consultancies and auditors (a "consultant edition").
   - Software suppliers of regulated buyers (the Supplier tier).
   - Never direct US federal sales before revenue; that path requires FedRAMP.
+
+### Competitive guardrails (2026-10-03)
+
+- **Qualify on the incumbent.**
+  - Ask every prospect whether they run Wiz or are working with QIZ or Deloitte. Deloitte and EY
+    are named QIZ partners.
+  - With Wiz, position Quantsiv as the CI and evidence layer on top of Wiz's inventory, never as
+    a replacement inventory.
+  - With QIZ or Deloitte, qualify out or position as complementary.
+- **Sell below them.** QIZ sells demo-led to large enterprises and federal buyers, and Wiz PQC is
+  for Wiz customers. Lead with mid-market DORA/NIS2 entities and software suppliers.
+- **Channel.** Recruit independent NL/EU boutiques and auditors for the consultant edition, not
+  the Big Four.
+- **Supplier hook.** Software suppliers will owe SBOMs under the EU Cyber Resilience Act
+  (Regulation (EU) 2024/2847, main obligations from 11 Dec 2027; verify on EUR-Lex). Pitch the
+  Supplier tier as "add cryptography to the CycloneDX SBOM you already produce", not as a new
+  obligation.
+- **Before raising, borrow the playbook that got QIZ its round:**
+  - add one credible advisor (an EU PKI or crypto practitioner, or an ex-DORA/NIS2 supervisor or
+    auditor);
+  - get an upstream contribution merged into CBOMkit/PQCA;
+  - document a tested CBOM round-trip into a third-party consumer;
+  - turn a design-partner CISO into a reference.
+- **At the stealth exit, borrow from Wiz.** Publish a small data report from scans of public
+  repositories, together with Quantsiv's CBOM profile.
 
 ### Distribution channels
 - **Hacker News** (Show HN) — security engineers are the audience
