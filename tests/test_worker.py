@@ -195,8 +195,8 @@ async def test_scan_error_is_user_safe():
     assert issubclass(ScanError, Exception)
 
 
-async def test_delete_account_is_a_stub():
-    assert await worker.delete_account({}, 1) is None
+async def test_delete_account_of_unknown_user(worker_ctx):
+    assert await worker.delete_account(worker_ctx, 1) == {"user": False, "installations": 0}
 
 
 ENGINE_OUTPUT = [

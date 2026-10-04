@@ -15,16 +15,22 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from arq.connections import RedisSettings
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import configure_logging, get_settings
 from app.db import make_engine
 from app.models import (
+    ApiToken,
+    AuditEvent,
     CbomSnapshot,
+    Finding,
     Installation,
     Scan,
     ScanStatus,
+    ShareLink,
+    TlsScan,
+    User,
     upsert_user,
     utcnow,
 )
@@ -186,8 +192,15 @@ async def handle_github_event(ctx: dict, event: str, payload: dict) -> str:
         logger.debug("installation account %s (%s)", account.get("login"), account.get("type"))
         if action == "created":
             await _save_installation(ctx, installation, account, payload.get("sender") or {})
-        # "deleted" and the data purge belong to the erasure runbook (WP8, A35)
+        elif action == "deleted":
+            # The app was uninstalled: purge everything derived from its repositories (A35)
+            await purge_installation(ctx, installation.get("id"))
         return f"installation-{action}"
+    if event == "github_app_authorization" and action == "revoked":
+        sender = payload.get("sender") or {}
+        if sender.get("id"):
+            await ctx["redis"].enqueue_job("delete_account", int(sender["id"]))
+        return "authorization-revoked"
     if event == "push":
         repo = payload.get("repository") or {}
         if payload.get("deleted"):
@@ -222,8 +235,56 @@ async def _save_installation(ctx: dict, installation: dict, account: dict, sende
         await db.commit()
 
 
-async def delete_account(ctx: dict, user_id: int) -> None:
-    logger.info("delete_account: not implemented until WP8")
+async def purge_installation(ctx: dict, github_installation_id: int | None) -> int:
+    """Delete an installation and all data derived from its repositories: findings, TLS
+    results, CBOMs, audit events, scans, tokens, then the installation row. Returns the number
+    of scans removed. The order follows docs/runbooks/erasure.md."""
+    if github_installation_id is None:
+        return 0
+    async with ctx["sessionmaker"]() as db:
+        installation = await db.scalar(
+            select(Installation).where(
+                Installation.github_installation_id == github_installation_id
+            )
+        )
+        if installation is None:
+            return 0
+        scans = list(await db.scalars(select(Scan).where(Scan.installation_id == installation.id)))
+        for scan in scans:
+            await db.execute(delete(Finding).where(Finding.scan_id == scan.id))
+            await db.execute(delete(TlsScan).where(TlsScan.scan_id == scan.id))
+            await db.execute(delete(CbomSnapshot).where(CbomSnapshot.scan_id == scan.id))
+            await db.execute(delete(ShareLink).where(ShareLink.scan_id == scan.id))
+        await db.execute(delete(AuditEvent).where(AuditEvent.installation_id == installation.id))
+        await db.execute(delete(Scan).where(Scan.installation_id == installation.id))
+        await db.execute(delete(ApiToken).where(ApiToken.installation_id == installation.id))
+        await db.delete(installation)
+        await db.commit()
+        logger.info("purged installation %s (%d scans)", github_installation_id, len(scans))
+        return len(scans)
+
+
+async def delete_account(ctx: dict, github_user_id: int) -> dict:
+    """Erase a user: every installation they own (with all derived data), then the user row
+    (GDPR Art. 17; docs/runbooks/erasure.md). Billing records are not held here."""
+    async with ctx["sessionmaker"]() as db:
+        user = await db.scalar(select(User).where(User.github_user_id == github_user_id))
+        if user is None:
+            return {"user": False, "installations": 0}
+        owned = list(
+            await db.scalars(
+                select(Installation.github_installation_id).where(Installation.user_id == user.id)
+            )
+        )
+    for github_installation_id in owned:
+        await purge_installation(ctx, github_installation_id)
+    async with ctx["sessionmaker"]() as db:
+        user = await db.scalar(select(User).where(User.github_user_id == github_user_id))
+        if user is not None:
+            await db.delete(user)
+            await db.commit()
+    logger.info("deleted account %s (%d installations)", github_user_id, len(owned))
+    return {"user": True, "installations": len(owned)}
 
 
 class WorkerSettings:

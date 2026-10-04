@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     # INFO carries no personal data (account or repo names); those are DEBUG only (A25)
     log_level: str = "INFO"
+    # Legal pages are served only once decision D4 (legal identity) is answered and the content
+    # is reviewed. Until then they are 404 in production and placeholders elsewhere (A33, WP8).
+    legal_ready: bool = False
 
 
 @lru_cache

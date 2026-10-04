@@ -103,11 +103,18 @@ def _open(page, url: str) -> None:
     assert page.title().endswith("- Quantsiv")
 
 
-PAGES = [(False, "/dashboard"), (True, "/dashboard"), (False, "/dashboard/tokens")] + [
-    (True, path)
-    for scan_id in SCANS
-    for path in (f"/dashboard/scans/{scan_id}", f"/dashboard/scans/{scan_id}/live")
-]
+PAGES = (
+    [(False, "/dashboard"), (True, "/dashboard"), (False, "/dashboard/tokens")]
+    + [
+        (False, f"/legal/{slug}")
+        for slug in ("privacy", "terms", "cookies", "notice", "data-deletion")
+    ]
+    + [
+        (True, path)
+        for scan_id in SCANS
+        for path in (f"/dashboard/scans/{scan_id}", f"/dashboard/scans/{scan_id}/live")
+    ]
+)
 
 
 @pytest.mark.parametrize(

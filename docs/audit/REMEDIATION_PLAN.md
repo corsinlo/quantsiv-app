@@ -28,9 +28,9 @@ that changes.
 | WP5 | Scan pipeline safety | done | #6, #10 | Engine step landed with D2 (#10) |
 | WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
 | WP7 | Local runner and CBOM ingest | done | #9, #10 | Scanner image and GitHub Marketplace action are published at the stealth exit, not before |
-| WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
+| WP8 | Legal and privacy surfaces | in progress (routes, erasure) / blocked (content, D4/D5) | | Routes, placeholders and the erasure flow built; every legal text waits for D4/D5 and counsel |
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
-| WP10 | Agent foundations: policy MCP server and gate explainer | review | | No LLM anywhere in it. The eval harness has no results yet |
+| WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
 
 ## Founder decisions
 
@@ -351,8 +351,10 @@ D2 was confirmed on 2026-10-04 (Quantsiv's own rules engine first, CBOMkit merge
 - The export validates against the CycloneDX 1.6 schema.
 
 ## WP8 - Legal and privacy surfaces (A33-A40)
-- [ ] `routers/legal.py` (audit section 7) with templates under `templates/legal/`. Until D4 is
-      answered, these pages return 404 in production (`settings.legal_ready = False`).
+- [x] `routers/legal.py` (audit section 7) with templates under `templates/legal/`. Until D4 is
+      answered, these pages return 404 in production (`settings.legal_ready = False`). (Built: structural
+      placeholders outside production, 404 in production; footer links appear with
+      `LEGAL_READY=true`. No legal text is written.)
 - [ ] Rewrite the privacy policy from the A34 table. Do **not** reuse the untracked draft's
       entity, address, DPO or security claims.
 - [ ] Terms, including:
@@ -362,8 +364,9 @@ D2 was confirmed on 2026-10-04 (Quantsiv's own rules engine first, CBOMkit merge
   - [ ] the DSA single point of contact.
 - [ ] Refund policy and cookie policy. Today: only strictly necessary cookies; list them.
 - [ ] Footer: entity details and legal links (A40).
-- [ ] Erasure runbook in `docs/runbooks/erasure.md`, plus the `installation.deleted` purge
-      (A35, P1). Self-serve `POST /account/delete` is P2.
+- [x] Erasure runbook in `docs/runbooks/erasure.md`, plus the `installation.deleted` purge
+      (A35, P1). Self-serve `POST /account/delete` is P2. (Built: the runbook, the purge on
+      uninstall, `delete_account` on authorisation revocation. Self-serve deletion is still P2.)
 - [ ] Email (when email is built): footer and `List-Unsubscribe` headers (audit section 7);
       classify each email; fix the spec §5 content errors (A36).
 - [ ] Pricing display (when billing is built): price, period, VAT treatment, auto-renewal and

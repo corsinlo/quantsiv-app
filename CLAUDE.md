@@ -9,8 +9,9 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP7 and WP9 have landed (PRs #2-#10); WP10 (policy MCP server, gate explainer) is in
-review. D1, D2 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
+WP0-WP7, WP9 and WP10 have landed (PRs #2-#11); WP8's buildable half (legal routes as
+placeholders, erasure) is in review, and its content waits for D4/D5. D1, D2 and D7 are
+confirmed. The app **signs users in with GitHub, stores installations,
 scans public repositories with Quantsiv's own rules engine, takes CBOM uploads from any CI, and
 gates them on a per-repository policy**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
@@ -43,6 +44,10 @@ gates them on a per-repository policy**:
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Plain `pytest` skips it;
 - sign-in is GitHub OAuth with a signed session cookie (`app/auth.py`); every page needs it, and
   every POST needs the CSRF token. The webhook verifies and queues, and the worker filters events;
+- legal pages (`app/routers/legal.py`) are structural placeholders: 404 in production until
+  `LEGAL_READY=true`, which waits for D4 and counsel. Never write legal text without D4. The
+  erasure flow (`docs/runbooks/erasure.md`, `worker.purge_installation`, `delete_account`) is
+  built;
 - the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks
   `deb.debian.org`).
 

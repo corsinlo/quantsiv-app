@@ -26,7 +26,7 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | CBOM import (any CycloneDX 1.6) with provenance, delta gate, estate export, org API tokens | Built | WP7 |
 | Agent foundations: read-only policy MCP server for AI coding assistants (`quantsiv mcp`), gate explainer (PR comment, check-run, SARIF), approved exceptions, audit export | Built. Deterministic: no model is called anywhere. The eval harness exists but has no results yet | WP10 |
 | Local runner `python -m quantsiv_scanner scan` (offline: CBOM, SARIF, report; optional upload with gate) and CI templates for GitHub Actions, GitLab, Jenkins and Azure DevOps | Built; the container image is built from this repo until the stealth exit | WP7 |
-| Legal pages | Planned; content needs decision D4 | WP8 |
+| Legal pages | Routes and placeholders built, hidden in production until decision D4 and counsel review; erasure runbook and automatic purge on uninstall built | WP8 |
 | Evidence reports (PDF), billing, emails | Planned; requirements are in WP8, pricing needs decision D5 | WP8 |
 
 ## Start here

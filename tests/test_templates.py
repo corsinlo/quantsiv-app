@@ -16,7 +16,9 @@ def render(name: str, **ctx) -> str:
     return env.get_template(name).render(request=None, title="t", **ctx)
 
 
-@pytest.mark.parametrize("name", sorted(p.name for p in TEMPLATES.rglob("*.html")))
+@pytest.mark.parametrize(
+    "name", sorted(str(p.relative_to(TEMPLATES)) for p in TEMPLATES.rglob("*.html"))
+)
 def test_template_compiles(name):
     env.get_template(name)
 

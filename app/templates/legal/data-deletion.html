@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6 max-w-3xl">
+    <h1 class="text-3xl font-bold text-gray-900">Delete Your Data</h1>
+    {% if not ready %}
+    <div role="status" class="rounded-md bg-yellow-50 border border-yellow-700 p-4 text-yellow-900">
+        <p class="font-medium">Not published yet.</p>
+        <p class="mt-1 text-sm">
+            This page is a structural placeholder shown outside production only. Its content
+            needs the legal entity details (decision D4) and a review by counsel before it is
+            published. Nothing on this page is a legal statement.
+        </p>
+    </div>
+    {% endif %}
+    <nav aria-label="Legal pages" class="text-sm text-gray-700">
+        {% for slug, name in pages.items() %}<a href="/legal/{{ slug }}" class="text-indigo-700 underline">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    </nav>
+    <section>
+        <h2 class="text-lg font-bold text-gray-900">What is deleted (findings, TLS results, CBOMs, scans, installations, your user record)</h2>
+        <p class="mt-1 text-sm text-gray-700">{% if ready %}TODO (D4){% else %}To be written once decision D4 is answered.{% endif %}</p>
+    </section>
+    <section>
+        <h2 class="text-lg font-bold text-gray-900">What is kept and why (invoices, under statutory retention)</h2>
+        <p class="mt-1 text-sm text-gray-700">{% if ready %}TODO (D4){% else %}To be written once decision D4 is answered.{% endif %}</p>
+    </section>
+    <section>
+        <h2 class="text-lg font-bold text-gray-900">How to request deletion</h2>
+        <p class="mt-1 text-sm text-gray-700">{% if ready %}TODO (D4){% else %}To be written once decision D4 is answered.{% endif %}</p>
+    </section>
+    <section>
+        <h2 class="text-lg font-bold text-gray-900">How long it takes (within one month, GDPR Article 12(3))</h2>
+        <p class="mt-1 text-sm text-gray-700">{% if ready %}TODO (D4){% else %}To be written once decision D4 is answered.{% endif %}</p>
+    </section>
+    <section>
+        <h2 class="text-lg font-bold text-gray-900">Uninstalling the GitHub App</h2>
+        <p class="mt-1 text-sm text-gray-700">{% if ready %}TODO (D4){% else %}To be written once decision D4 is answered.{% endif %}</p>
+    </section>
+</div>
+{% endblock %}
