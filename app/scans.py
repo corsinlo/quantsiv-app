@@ -15,6 +15,8 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.models import Finding, Installation, Scan, User
+from app.services.errors import ScanError
+from app.services.github import GitHubApp, get_github_app
 
 FINDING_FIELDS = (
     "id",
@@ -84,16 +86,39 @@ def get_scan_store(db: Annotated[AsyncSession, Depends(get_db)]) -> ScanStore:
 
 
 class RepoAccess(Protocol):
-    async def can_scan(self, user_id: int, repo_full_name: str) -> bool:
-        """True only if the repo is in one of the user's installations' repository lists."""
+    async def installation_for(self, user_id: int, repo_full_name: str) -> int | None:
+        """The GitHub installation id through which this user may scan the repo, else None."""
         ...
 
 
-class UnavailableRepoAccess:
-    async def can_scan(self, user_id: int, repo_full_name: str) -> bool:
-        # Needs installation tokens from the GitHub App integration (WP5)
-        raise HTTPException(501, "Manual scans are not available yet")
+class GitHubRepoAccess:
+    """Ask GitHub which installation of the app covers the repo, then check in SQL that the
+    installation belongs to the signed-in user (A14)."""
+
+    def __init__(self, db: AsyncSession, github: GitHubApp):
+        self.db = db
+        self.github = github
+
+    async def installation_for(self, user_id: int, repo_full_name: str) -> int | None:
+        try:
+            installation_id = await self.github.installation_for_repo(repo_full_name)
+        except ScanError as exc:
+            raise HTTPException(502, str(exc)) from None
+        if installation_id is None:
+            return None
+        owned = await self.db.scalar(
+            select(Installation.id)
+            .join(User, Installation.user_id == User.id)
+            .where(
+                Installation.github_installation_id == installation_id,
+                User.github_user_id == user_id,
+            )
+        )
+        return installation_id if owned is not None else None
 
 
-def get_repo_access() -> RepoAccess:
-    return UnavailableRepoAccess()
+def get_repo_access(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    github: Annotated[GitHubApp, Depends(get_github_app)],
+) -> RepoAccess:
+    return GitHubRepoAccess(db, github)

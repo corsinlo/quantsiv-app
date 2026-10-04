@@ -6,6 +6,7 @@ Start it with `python -m arq app.worker.WorkerSettings`.
 
 import asyncio
 import logging
+import os
 import shutil
 import tempfile
 from typing import ClassVar
@@ -17,7 +18,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.config import configure_logging, get_settings
 from app.db import make_engine
 from app.models import Installation, Scan, ScanStatus, upsert_user, utcnow
+from app.services.clone import clone_repository
 from app.services.errors import ScanError
+from app.services.github import GitHubApp
 
 logger = logging.getLogger(__name__)
 configure_logging()
@@ -25,23 +28,34 @@ configure_logging()
 SCAN_TIMEOUT = 540  # seconds; below WorkerSettings.job_timeout so the scan is marked failed
 
 
+MAX_REPO_KB = 500 * 1024  # GitHub reports size in KB; larger repos are refused before cloning
+
+
 class ScanPipeline:
-    """The steps of one scan. Each step that isn't built yet fails with a clear ScanError, so a
-    scan never reports invented findings (A29): repository access and the hardened clone arrive
-    with WP5, the scan engine with decision D2, CBOM and scoring with WP6."""
+    """The steps of one scan (A15, A16, A52). Hosted scanning covers public repositories only
+    (D1): a private repository is refused before anything is cloned. The token is down-scoped
+    to the one repository and revoked before the engine runs. The engine itself is decision D2:
+    until it exists the scan fails with a clear message, never with invented findings (A29)."""
 
-    async def run(self, scan: Scan, workdir: str) -> None:
-        await self.get_access_token(scan)
-        await self.clone(scan, workdir)
-        await self.scan_source(workdir)
+    def __init__(self, github: GitHubApp | None = None, max_repo_kb: int = MAX_REPO_KB):
+        self.github = github or GitHubApp()
+        self.max_repo_kb = max_repo_kb
 
-    async def get_access_token(self, scan: Scan) -> str:
-        raise ScanError("Repository access is not available yet.")
+    async def run(self, scan: Scan, workdir: str, installation_id: int) -> None:
+        dest = os.path.join(workdir, "repo")
+        async with self.github.installation_token(installation_id, scan.repo_full_name) as token:
+            repo = await self.github.repository(token, scan.repo_full_name)
+            if repo.get("private"):
+                raise ScanError("Hosted scanning covers public repositories only.")
+            if int(repo.get("size") or 0) > self.max_repo_kb:
+                raise ScanError(
+                    f"The repository is larger than the {self.max_repo_kb // 1024} MB scan limit."
+                )
+            await clone_repository(scan.repo_full_name, token, dest)
+        await self.scan_source(dest)
 
-    async def clone(self, scan: Scan, workdir: str) -> None:
-        raise ScanError("Repository cloning is not available yet.")
-
-    async def scan_source(self, workdir: str) -> list[dict]:
+    async def scan_source(self, path: str) -> list[dict]:
+        # D2: run the chosen engine through app.services.sandbox.run_limited
         raise ScanError("The scan engine is not available yet.")
 
 
@@ -86,7 +100,7 @@ async def scan_repository(
         workdir = await asyncio.to_thread(tempfile.mkdtemp, prefix=f"quantsiv_scan_{scan.id}_")
         try:
             async with asyncio.timeout(SCAN_TIMEOUT):
-                await pipeline.run(scan, workdir)
+                await pipeline.run(scan, workdir, installation_id)
             scan.status = ScanStatus.DONE
         except ScanError as exc:
             scan.status, scan.error_message = ScanStatus.FAILED, str(exc)

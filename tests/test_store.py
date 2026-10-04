@@ -76,3 +76,22 @@ async def test_sign_in_creates_the_user_and_the_dashboard_shows_their_scans():
         html = client.get("/dashboard").text
         assert "carol/tool" in html
         assert 'id="scans-empty"' not in html
+
+
+async def test_repo_access_needs_github_and_ownership():
+    from app.scans import GitHubRepoAccess
+    from tests.github_mock import FakeGitHub
+
+    async with get_sessionmaker()() as db:
+        dave = User(github_user_id=5201, github_login="dave")
+        db.add(
+            Installation(
+                github_installation_id=6201, account_name="dave", account_type="User", user=dave
+            )
+        )
+        await db.commit()
+        covered = GitHubRepoAccess(db, FakeGitHub(installation=6201).app())
+        assert await covered.installation_for(5201, "dave/tool") == 6201
+        assert await covered.installation_for(5999, "dave/tool") is None  # not the owner
+        uncovered = GitHubRepoAccess(db, FakeGitHub(installation=None).app())
+        assert await uncovered.installation_for(5201, "dave/tool") is None

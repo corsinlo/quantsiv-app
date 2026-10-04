@@ -18,8 +18,9 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | GitHub webhook handler | Built: signature check, size limit, deduplicated queueing; the worker stores installations and filters pushes | WP3, WP4 |
 | Sign-in (GitHub OAuth), sessions, CSRF, security headers | Built; scans are scoped to the signed-in user in SQL | WP3, WP4 |
 | Data model (Postgres, Alembic) and ARQ worker | Built: installations are stored from webhooks, pushes create scan records. Every scan fails with "not available yet" until repository access (WP5) and the engine (D2) exist | WP4 |
-| Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |
-| TLS scanning (sslyze, verified domains only) | Planned | WP5 |
+| Hosted scan pipeline for public repos (down-scoped token, hardened clone, size limit, limited engine process) | Built; scans stop with "The scan engine is not available yet" | WP5 |
+| Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | D2 |
+| TLS scanning (sslyze, verified domains only) | Planned; the SSRF guard it must use is built | later |
 | CycloneDX 1.6 CBOM output | Reference generator validated against the schema; not yet in the app | WP6 |
 | HNDL scoring from declared data lifetimes, plus a separate signature-deadline track | Planned | WP6 |
 | CBOM import (any CycloneDX 1.6) and export | Planned | WP7 |
