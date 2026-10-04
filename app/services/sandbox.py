@@ -39,12 +39,23 @@ def _apply(limits: Limits):
     return preexec
 
 
-async def run_limited(argv: list[str], cwd: str, limits: Limits = DEFAULT_LIMITS) -> bytes:
-    """Run argv with limits; return stdout. Fails with a fixed ScanError, never tool output."""
+async def run_limited(
+    argv: list[str],
+    cwd: str,
+    limits: Limits = DEFAULT_LIMITS,
+    env: dict[str, str] | None = None,
+) -> bytes:
+    """Run argv with limits; return stdout. Fails with a fixed ScanError, never tool output.
+    `env` adds to the minimal environment (never secrets)."""
     proc = await asyncio.create_subprocess_exec(
         *argv,
         cwd=cwd,
-        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": cwd, "LANG": "C.UTF-8"},
+        env={
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": cwd,
+            "LANG": "C.UTF-8",
+            **(env or {}),
+        },
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,

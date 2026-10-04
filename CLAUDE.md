@@ -9,26 +9,31 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP6 and WP9 have landed (PRs #2-#8); the ingest half of WP7 is in review (its scanner half
-waits for D2). D1 and D7
-are confirmed. The app **signs users in with GitHub, stores installations, queues scans of public
-repositories, and can score findings and build CBOMs, but has no scan engine yet (D2)**:
+WP0-WP6 and WP9 have landed (PRs #2-#9, with WP7's ingest half); WP7's scanner half and the WP5
+engine step are in review (#10). D1, D2 and D7 are confirmed. The app **signs users in with
+GitHub, stores installations, scans public repositories with Quantsiv's own rules engine, and
+takes CBOM uploads from any CI**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
   (empty states otherwise). Routes read scans through `app/scans.py` (`DbScanStore`), scoped in
   SQL to the signed-in user's installations;
 - the database is SQLAlchemy 2.0 async with Alembic migrations (`migrations/`): Postgres in
   deployment, SQLite in local tests. Run `alembic upgrade head` after pulling;
-- a scan gets a down-scoped token, refuses private or oversized repos, clones with the hardened
-  clone, revokes the token, then fails with "The scan engine is not available yet." (D2). Never
-  let a stub produce findings. Hosted-scanning rules: `docs/hosted-scanning.md`;
+- a hosted scan gets a down-scoped token, refuses private or oversized repos, clones with the
+  hardened clone, revokes the token, then runs `quantsiv_scanner` as a separate limited process
+  (`services/sandbox.py`). Hosted-scanning rules: `docs/hosted-scanning.md`;
+- the engine (D2) is `quantsiv_scanner/`: pattern rules per language (`rules.py`), a walker
+  (`engine.py`), a CLI (`cli.py`) that writes CBOM, SARIF and report offline and uploads only
+  with `QUANTSIV_TOKEN`. CBOMkit is merged as data (`cbom/cbom.json`), never wrapped. Coverage
+  and limits: `docs/scanner.md`. The scanner imports only the pure modules of `app/services/`
+  (cbom, scoring, lifetimes, ingest, errors): never import `app.models`, `app.db` or `app.config`
+  from code the scanner uses, and keep `requirements-scanner.in` minimal;
 - CI uploads work today: `POST /api/v1/cbom?repository=owner/name` with an org token
   (`/dashboard/tokens`) takes any schema-valid CycloneDX 1.6 CBOM (e.g. from CBOMkit), records
   its producer, scores its assets like a hosted scan (`services/results.py`) and returns a
   pass/fail gate on newly added quantum-vulnerable crypto. `GET /api/v1/cbom` exports the estate;
-- once the engine returns findings, `worker.record_results` scores them on the dual track
-  (`services/scoring.py`: HNDL by the lifetimes declared in the repo's `quantsiv.yml`,
-  signature deadline otherwise), stores them, and stores a CycloneDX 1.6 CBOM
-  (`services/cbom.py`). "Built to emit" still applies to the product copy until D2 lands;
+- `worker.record_results` scores engine findings on the dual track (`services/scoring.py`:
+  HNDL by the lifetimes declared in the repo's `quantsiv.yml`, signature deadline otherwise),
+  stores them, and stores a CycloneDX 1.6 CBOM (`services/cbom.py`);
 - `pytest -m a11y` runs the axe-core WCAG check (Playwright Chromium; in this cloud VM set
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Plain `pytest` skips it;
 - sign-in is GitHub OAuth with a signed session cookie (`app/auth.py`); every page needs it, and
@@ -75,6 +80,8 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
 - Front-end assets are self-hosted and committed: after changing templates, `app/static/js/` or
   Tailwind, run `npm ci && npm run build` and commit `app/static/`. CI fails if they drift. No
   inline scripts or styles: the CSP forbids them.
+- Markets: the US and the EU (founder, 2026-10-04). Cite both US and EU authorities; the control
+  plane is EU-hosted; US data residency is an open question for the first US customer.
 - Dependencies: edit the `requirements*.in` files, then re-lock with the `uv pip compile` command
   in each file's header (hashes, Python 3.12). Never hand-edit the `.txt` locks.
 
@@ -109,8 +116,8 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
      - as many systems as feasible by 2035.
    - **NSA CNSA 2.0:** exclusive-use dates of 2030-2033 depending on the category. Verify
      against the current NSA advisory before quoting a single year.
-3. **The CBOM is the wedge.** Quantsiv is *built to* emit CycloneDX 1.6 CBOMs (the reference
-   generator is in audit section 7). Do not write "already emits" until WP6 ships.
+3. **The CBOM is the wedge.** Quantsiv emits CycloneDX 1.6 CBOMs (WP6, WP7). Say what the
+   scanner covers and does not (`docs/scanner.md`); never claim type-resolved analysis.
 
 ## Delivery model (founder decision D1, confirmed 2026-10-04)
 

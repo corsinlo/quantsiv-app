@@ -1,0 +1,62 @@
+{
+ "bomFormat": "CycloneDX",
+ "specVersion": "1.6",
+ "serialNumber": "urn:uuid:11111111-2222-4333-8444-555555555555",
+ "version": 1,
+ "metadata": {
+  "timestamp": "2026-10-04T08:00:00Z",
+  "tools": {
+   "components": [
+    {
+     "type": "application",
+     "name": "cbomkit",
+     "version": "2.3.0"
+    }
+   ]
+  }
+ },
+ "components": [
+  {
+   "type": "cryptographic-asset",
+   "bom-ref": "a1",
+   "name": "RSA-2048",
+   "cryptoProperties": {
+    "assetType": "algorithm",
+    "algorithmProperties": {
+     "primitive": "pke",
+     "parameterSetIdentifier": "2048",
+     "nistQuantumSecurityLevel": 0
+    }
+   },
+   "evidence": {
+    "occurrences": [
+     {
+      "location": "src/app.py",
+      "line": 6
+     }
+    ]
+   }
+  },
+  {
+   "type": "cryptographic-asset",
+   "bom-ref": "a2",
+   "name": "AES-256-GCM",
+   "cryptoProperties": {
+    "assetType": "algorithm",
+    "algorithmProperties": {
+     "primitive": "ae",
+     "parameterSetIdentifier": "256",
+     "nistQuantumSecurityLevel": 5
+    }
+   },
+   "evidence": {
+    "occurrences": [
+     {
+      "location": "src/Crypto.java",
+      "line": 11
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,5 +1,8 @@
 """Worker jobs, called directly with a ctx on the test database (WP4 acceptance)."""
 
+import shutil
+from pathlib import Path
+
 from sqlalchemy import select
 
 from app import worker
@@ -39,19 +42,62 @@ async def _cloned(repo_full_name, token, dest, timeout=120):
     os.makedirs(dest)
 
 
-async def test_public_repo_is_cloned_then_fails_honestly_without_an_engine(worker_ctx, monkeypatch):
-    monkeypatch.setattr(worker, "clone_repository", _cloned)
+FIXTURE = Path(__file__).parent / "scanner" / "fixtures" / "sample"
+
+
+async def _cloned_fixture(repo_full_name, token, dest, timeout=120):
+    shutil.copytree(FIXTURE, dest, symlinks=True)
+
+
+async def test_public_repo_is_cloned_scanned_and_scored_end_to_end(worker_ctx, monkeypatch):
+    """Clone (faked), the real engine in the sandbox, scoring with the repo's quantsiv.yml,
+    findings and CBOM stored. The fixture declares a 25-year lifetime for acme/sample."""
+    from sqlalchemy.orm import selectinload
+
+    monkeypatch.setattr(worker, "clone_repository", _cloned_fixture)
     fake = FakeGitHub()
     await _installation(worker_ctx, 8001)
     scan_id = await worker.scan_repository(
-        worker_ctx, 8001, "o/r", triggered_by="push", pipeline=worker.ScanPipeline(fake.app())
+        worker_ctx,
+        8001,
+        "acme/sample",
+        triggered_by="push",
+        pipeline=worker.ScanPipeline(fake.app()),
+    )
+    async with worker_ctx["sessionmaker"]() as db:
+        scan = await db.scalar(
+            select(Scan)
+            .where(Scan.id == scan_id)
+            .options(selectinload(Scan.findings), selectinload(Scan.cbom))
+        )
+    assert scan.status == ScanStatus.DONE, scan.error_message
+    assert scan.triggered_by == "push"
+    assert fake.calls()[-1] == ("DELETE", "/installation/token")  # revoked before the engine
+    algorithms = {f.algorithm for f in scan.findings}
+    assert {"RSA", "ECDH", "X25519", "ML-KEM", "AES-256-GCM"} <= algorithms
+    ecdh = next(f for f in scan.findings if f.algorithm == "ECDH" and f.file_path == "src/app.py")
+    assert (ecdh.track, ecdh.severity, ecdh.lifetime_years) == ("HNDL", "critical", 25)
+    assert all(f.raw_match is None for f in scan.findings)  # snippets are opt-in (A39)
+    assert scan.cbom.risk_score > 0
+    assert scan.cbom.producer == "Quantsiv hosted scan"
+    assert len(scan.cbom.cbom_json["components"]) == len(scan.findings)
+
+
+async def test_engine_failure_is_a_fixed_message(worker_ctx, monkeypatch):
+    async def broken(*args, **kwargs):
+        return b"not json"
+
+    monkeypatch.setattr(worker, "clone_repository", _cloned_fixture)
+    monkeypatch.setattr(worker, "run_limited", broken)
+    await _installation(worker_ctx, 8011)
+    scan_id = await worker.scan_repository(
+        worker_ctx, 8011, "acme/sample", pipeline=worker.ScanPipeline(FakeGitHub().app())
     )
     scan = await _scan(worker_ctx, scan_id)
-    assert scan.status == ScanStatus.FAILED
-    assert scan.error_message == "The scan engine is not available yet."
-    assert scan.triggered_by == "push"
-    assert scan.completed_at is not None
-    assert fake.calls()[-1] == ("DELETE", "/installation/token")  # revoked before the engine
+    assert (scan.status, scan.error_message) == (
+        ScanStatus.FAILED,
+        "The scanner produced no readable result.",
+    )
 
 
 async def test_private_repos_are_refused_before_cloning(worker_ctx, monkeypatch):

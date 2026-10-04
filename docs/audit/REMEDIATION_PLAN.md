@@ -25,12 +25,12 @@ that changes.
 | WP2 | Honest, accessible UI | done | #3 | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
 | WP3 | Security foundation | done | #4 | Share links wait for WP4 (`share_links` table) |
 | WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
-| WP5 | Scan pipeline safety | done | #6 | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
+| WP5 | Scan pipeline safety | done | #6, #10 | Engine step landed with D2 (#10) |
 | WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
-| WP7 | Local runner and CBOM ingest | in progress | #9 (ingest) | Ingest, tokens, delta gate and export merged; scanner half unblocked by D2 |
+| WP7 | Local runner and CBOM ingest | review | #9 (ingest), #10 (scanner) | Scanner image and GitHub Marketplace action are published at the stealth exit, not before |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
-| WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed (D7 confirmed 2026-10-04). No LLM in this WP |
+| WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 (#10) merged; D7 confirmed 2026-10-04. No LLM in this WP |
 
 ## Founder decisions
 
@@ -270,9 +270,9 @@ tests/
 - [x] Sandbox: the scanner runs as a separate process with a timeout and memory limit. Document
       that hosted scanning of private repos stays off until it can run with no network (A16).
       (`services/sandbox.py`; `docs/hosted-scanning.md`. The pipeline refuses private repos.)
-- [ ] **BLOCKED by D2:** integrate the chosen engine. Until then, the "scan" step is clearly
-      labelled as a stub in the UI and logs. (Done for the label: scans fail with "The scan
-      engine is not available yet.")
+- [x] ~~BLOCKED by D2~~ D2 confirmed 2026-10-04: the engine is `quantsiv_scanner` (Quantsiv's
+      rules, plus CBOMkit's CBOM merged when present), run by the worker as a separate limited
+      process (`ScanPipeline.scan_source` via `run_limited`).
 
 **Acceptance:**
 - `tests/test_clone.py` passes: mock `create_subprocess_exec` and assert the token appears in no
@@ -311,33 +311,42 @@ tests/
 
 ## WP7 - Local runner and CBOM ingest (D1)
 D1 was confirmed on 2026-10-04 (local-first by default; see the decision table).
-**The scanner half (CLI, CI templates, offline run, time-to-value) is BLOCKED by D2**, because
-the CLI's core is the engine. The ingest/export half is built.
-- [ ] Extract the engine glue into a `quantsiv_scanner` package with a CLI, `quantsiv scan`. It
+D2 was confirmed on 2026-10-04 (Quantsiv's own rules engine first, CBOMkit merged as data).
+- [x] Extract the engine glue into a `quantsiv_scanner` package with a CLI, `quantsiv scan`. It
       runs CBOMkit tooling and your own rules on a local checkout, then writes the CBOM
       (`build_cbom`), SARIF and an HNDL report, offline.
+      (`python -m quantsiv_scanner scan`; it merges CBOMkit-action's `cbom/cbom.json` rather than
+      running Java itself. `docs/scanner.md`. The package still imports the pure modules under
+      `app/services/`; the scanner image copies only those.)
 - [ ] CI templates (each one runs the same container):
-  - [ ] GitHub Action: free; the token is optional and only used for upload;
-  - [ ] GitLab CI component;
-  - [ ] Jenkinsfile snippet (`docker.image(...).inside { sh 'quantsiv scan' }`);
-  - [ ] Azure DevOps YAML.
+  - [x] GitHub Action: free; the token is optional and only used for upload;
+        (`ci/github-actions/quantsiv.yml`, a workflow that runs the container; a Marketplace
+        action and a published image wait for the stealth exit)
+  - [x] GitLab CI component; (`ci/gitlab/quantsiv.gitlab-ci.yml`, an include template; a
+        catalog component needs a public project)
+  - [x] Jenkinsfile snippet (`docker.image(...).inside { sh 'quantsiv scan' }`);
+  - [x] Azure DevOps YAML.
 - [x] `POST /api/v1/cbom`: org-token authenticated, CBOM JSON only (no source). It is
       validated against the 1.6 schema, stored per scan, and diffed against the previous scan.
       (`app/routers/v1.py`; tokens are created and revoked at `/dashboard/tokens`.)
 - [x] Gate PRs on the CBOM **delta** (new vulnerable crypto), not the absolute count.
       (The upload response carries `gate: pass|fail` from the delta; posting it as a PR check
       is the CI templates' job.)
-- [ ] **Offline by default** (D6): no network call and no token are needed to write the CBOM,
+- [x] **Offline by default** (D6): no network call and no token are needed to write the CBOM,
       SARIF and report. Upload happens only with an organisation token.
-- [ ] **Measure time-to-value:** record in the scanner output the time from the CI step starting
+      (Tested with sockets refused, and in CI under `unshare -rn` and `docker --network none`.)
+- [x] **Measure time-to-value:** record in the scanner output the time from the CI step starting
       to the first CBOM, so it can be reported per design partner.
+      (`QUANTSIV_STEP_STARTED` -> `quantsiv:seconds-to-first-cbom` in the CBOM and the report.)
 - [x] **Import any CBOM** (D6): `POST /api/v1/cbom` accepts any schema-valid CycloneDX 1.6
       CBOM, not only Quantsiv's, and stores the producing tool (`metadata.tools`) as provenance.
 - [x] **Export endpoint:** returns the stored estate CBOM as plain CycloneDX 1.6 JSON.
       (`GET /api/v1/cbom`, token-authenticated.)
 
 **Acceptance (WP7):**
-- A CBOM produced by CBOMkit's GitHub Action ingests and diffs cleanly.
+- A CBOM produced by CBOMkit's GitHub Action ingests and diffs cleanly. (Tested with a
+  CBOMkit-shaped fixture, `tests/scanner/fixtures/sample/cbom/cbom.json`; the action publishes
+  no sample, so run it once on a real repository before quoting this.)
 - The scanner runs to completion with networking disabled.
 - The export validates against the CycloneDX 1.6 schema.
 

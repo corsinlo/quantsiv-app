@@ -49,6 +49,12 @@ _LONG_LIVED_SIGNING = re.compile(
 _QUANTUM_SAFE = re.compile(
     r"^(ML-KEM|ML-DSA|SLH-DSA|KYBER|DILITHIUM|SPHINCS|LMS|XMSS)", re.IGNORECASE
 )
+# Public-key algorithms a cryptographically relevant quantum computer breaks (Shor), whatever
+# they are used for: if the use is not classified they still rank, as a severity
+_SHOR_BROKEN = re.compile(
+    r"^(RSA|EC|ECC|ECDSA|ECDH|ECDHE|ECMQV|ECIES|DSA|DH|DHE|FFDH|X25519|X448|ED25519|ED448|EDDSA"
+    r"|ELGAMAL|SM2)\b"
+)
 
 
 def primitive_for(finding: dict) -> str:
@@ -72,9 +78,11 @@ def primitive_for(finding: dict) -> str:
 
 
 def is_quantum_vulnerable(finding: dict) -> bool:
-    algorithm = (finding.get("algorithm") or "").upper()
+    algorithm = (finding.get("algorithm") or "").upper().replace("_", "-")
     if finding.get("quantum_safe") or _QUANTUM_SAFE.match(algorithm):
         return False
+    if _SHOR_BROKEN.match(algorithm):
+        return True
     return primitive_for(finding) in HNDL_EXPOSED | {"signature"}
 
 
@@ -121,6 +129,15 @@ def assess(finding: dict, repo_full_name: str, lifetimes: Lifetimes, today: date
             years,
             f"Protects data that must stay confidential for {years} years.",
         )
+    if primitive != "signature":
+        return Assessment(
+            primitive,
+            TRACK_SEVERITY,
+            "high",
+            None,
+            "Quantum-vulnerable public-key algorithm; whether it signs or encrypts is not "
+            "classified, so it is ranked by severity only.",
+        )
     # Signatures: future forgery, never retroactive decryption
     deadline = lifetimes.signature_deadline
     trust = lifetimes.signature_trust_years
@@ -155,3 +172,12 @@ def severity_score(severities: list[str]) -> int:
         + min(counts["high"] * 10, 30)
         + min(counts["medium"] * 5, 20),
     )
+
+
+def score(
+    findings: list[dict], repo_full_name: str, lifetimes: Lifetimes, today: date
+) -> list[tuple[Assessment, dict]]:
+    """Assess every finding and rank them, highest priority first."""
+    scored = [(assess(raw, repo_full_name, lifetimes, today), raw) for raw in findings]
+    scored.sort(key=lambda pair: rank_key(pair[0]))
+    return scored

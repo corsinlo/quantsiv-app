@@ -1,0 +1,2 @@
+steps:
+  - run: keytool -genkeypair -keyalg RSA -keysize 3072 -alias app
