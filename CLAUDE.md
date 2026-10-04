@@ -90,7 +90,7 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
 3. **The CBOM is the wedge.** Quantsiv is *built to* emit CycloneDX 1.6 CBOMs (the reference
    generator is in audit section 7). Do not write "already emits" until WP6 ships.
 
-## Delivery model (proposed; founder decision D1)
+## Delivery model (founder decision D1, confirmed 2026-10-04)
 
 - **Scanning happens in the customer's environment.** A local-first scanner (`quantsiv scan`
   CLI plus a signed container) runs in the customer's CI (GitHub Actions, GitLab, Jenkins via a
@@ -99,6 +99,10 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
   finding metadata, and can later be self-hosted or air-gapped.
 - **Server-side cloning is for public repos and demos only.** The spec's GitHub App flow is
   kept for those and nothing else.
+- **Local-first is the default, not a permanent limit.** Hosted scanning of private repos may
+  be offered later as an opt-in, once a network-less sandbox (A16) and the compliance work are
+  funded. Word claims so they stay true then: "scanning runs in your CI by default", not an
+  absolute "your code never leaves".
 - **B2B only.** See `quantsiv.md`, "Delivery model".
 - **Positioning (decision D6).** Quantsiv is *cryptographic change control and CBOM evidence*,
   complementary to posture platforms (QIZ Security, Wiz for PQC Readiness):
@@ -119,7 +123,7 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
   - Never invent algorithms.
   - Never ship our own cryptographic implementations to customers without CMVP (FIPS 140-3)
     validation.
-- **Agents (D7, D8).**
+- **Agents (D7 confirmed 2026-10-04; D8 open).**
   - Agents propose, deterministic tools decide, and a human approves.
   - Never add auto-merge or auto-deploy.
   - The MCP server has no write tools.

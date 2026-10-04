@@ -27,22 +27,24 @@ that changes.
 | WP4 | Data layer and worker | todo | | |
 | WP5 | Scan pipeline safety | todo | | Engine part blocked by D2 |
 | WP6 | CBOM and HNDL scoring | todo | | |
-| WP7 | Local runner and CBOM ingest | blocked | | Needs D1 confirmed |
+| WP7 | Local runner and CBOM ingest | todo | | D1 confirmed 2026-10-04 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | todo | | |
-| WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed and D7 confirmed. No LLM in this WP |
+| WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed (D7 confirmed 2026-10-04). No LLM in this WP |
 
-## Decisions needed from the founder
+## Founder decisions
+
+Confirmed decisions say so in their row; the rest are still open.
 
 | ID | Decision | Recommended default | Blocks |
 | --- | --- | --- | --- |
-| D1 | Delivery model | Local-first scanner (CLI plus container) runs in the customer's CI, so code never leaves. Only the CBOM goes to an EU-hosted, metadata-only control plane (self-hosted later). Server-side cloning stays only for public repos and demos. See `quantsiv.md`, "Delivery model". | WP7; shapes WP5 |
+| D1 | Delivery model | **Confirmed 2026-10-04.** Local-first scanner (CLI plus container) runs in the customer's CI, so code never leaves. Only the CBOM goes to an EU-hosted, metadata-only control plane (self-hosted later). Server-side cloning stays only for public repos and demos. See `quantsiv.md`, "Delivery model". Local-first is the default, not a permanent limit: hosted scanning of private repos may be offered later as an opt-in, once a network-less sandbox (A16) and the compliance work (security certification, DPA, EU processing) are funded. | WP7 (unblocked); shapes WP5 |
 | D2 | Scan engine | Ingest CBOMs from CBOMkit's published CI tooling run after the customer's build, plus your own rules for gaps (PyCryptodome, Go, JS/TS). Wrap `cbomkit-lib` (Java library, Java and Python only) in a pinned fat jar only if hosted scanning stays. | WP5 engine step |
 | D3 | Hosting and region | Railway (or Render), EU region, Postgres (not a shared SQLite file, A51) | WP4 deploy |
 | D4 | Legal identity | Entity name, registered address, KvK and VAT numbers, privacy contact email | WP8 content, footer |
 | D5 | Packaging and pricing | To be validated with design partners. The proposals live in `quantsiv.md`, "Pricing". | WP8 pricing display; billing |
 | D6 | Competitive positioning | Complementary to posture platforms (QIZ Security, Wiz for PQC Readiness): export and ingest CycloneDX, build no runtime or cloud inventory before Phase 3, and never use the label "cryptographic posture management". See `quantsiv.md`, "Posture platforms". | Nothing blocked; shapes the WP7 interoperability scope and the copy |
-| D7 | Agent principles | Agents propose, the pipeline verifies, a human approves. Deterministic tools decide every verdict; never auto-merge or auto-deploy. Agents are off by default per organisation, with a kill switch. The read-only policy MCP server ships free with the scanner; agents that use control-plane data go to design partners first. See `quantsiv.md`, "Agent layer". | WP10 |
+| D7 | Agent principles | **Confirmed 2026-10-04.** Agents propose, the pipeline verifies, a human approves. Deterministic tools decide every verdict; never auto-merge or auto-deploy. Agents are off by default per organisation, with a kill switch. The read-only policy MCP server ships free with the scanner; agents that use control-plane data go to design partners first. See `quantsiv.md`, "Agent layer". | WP10 (still needs WP7) |
 | D8 | Model hosting for LLM features | No LLM in Phase 1.0. Agents that touch code run in the customer's pipeline, on a model endpoint the customer chooses (bring your own model). Control-plane drafting (metadata only) uses an EU-region endpoint whose terms exclude training on customer data; choose the provider after reading its current terms. | Phase 1.1 lifetime assistant and evidence drafter; Phase 2 migration proposer |
 | D9 | Migration-corpus data rights | An opt-in clause in the design-partner agreement keeps code-free outcome records: rule ID, from/to primitive, library versions, fix class, verifier results, human verdict and reason. Diffs only with a separate written opt-in; deletion on request. Needs legal review. | Corpus collection; the first design-partner NDA |
 
@@ -281,7 +283,7 @@ tests/
 - The lifetime property survives a CBOM round-trip through strict 1.6 validation.
 
 ## WP7 - Local runner and CBOM ingest (D1)
-**BLOCKED until D1 is confirmed by the founder.**
+D1 was confirmed on 2026-10-04 (local-first by default; see the decision table).
 - [ ] Extract the engine glue into a `quantsiv_scanner` package with a CLI, `quantsiv scan`. It
       runs CBOMkit tooling and your own rules on a local checkout, then writes the CBOM
       (`build_cbom`), SARIF and an HNDL report, offline.
@@ -337,7 +339,7 @@ tests/
 **Acceptance:** total static weight per page is under 100 KB, excluding fonts (there are none).
 
 ## WP10 - Agent foundations: policy MCP server and gate explainer (D7)
-**BLOCKED until WP7 has landed and D7 is confirmed.** Nothing in this WP calls an LLM. Never add
+**BLOCKED until WP7 has landed.** D7 was confirmed on 2026-10-04. Nothing in this WP calls an LLM. Never add
 UI or README copy claiming agents until this WP is merged.
 - [ ] `quantsiv_scanner/policy.py`. It loads the `policy:` section of `quantsiv.yml`: allowed and
       blocked primitives per data class, declared lifetimes, and the signature deadline (default

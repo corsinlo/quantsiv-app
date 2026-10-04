@@ -22,8 +22,8 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | CycloneDX 1.6 CBOM output | Reference generator validated against the schema; not yet in the app | WP6 |
 | HNDL scoring from declared data lifetimes, plus a separate signature-deadline track | Planned | WP6 |
 | CBOM import (any CycloneDX 1.6) and export | Planned | WP7 |
-| Agent foundations: read-only policy MCP server for AI coding assistants, gate explainer | Planned; decision D7 | WP10 |
-| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; delivery model is decision D1 | WP7 |
+| Agent foundations: read-only policy MCP server for AI coding assistants, gate explainer | Planned; needs WP7 | WP10 |
+| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; delivery model D1 confirmed | WP7 |
 | Legal pages | Planned; content needs decision D4 | WP8 |
 | Evidence reports (PDF), billing, emails | Planned; requirements are in WP8, pricing needs decision D5 | WP8 |
 
