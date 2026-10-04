@@ -26,7 +26,7 @@ that changes.
 | WP3 | Security foundation | done | #4 | Share links wait for WP4 (`share_links` table) |
 | WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
 | WP5 | Scan pipeline safety | done | #6 | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
-| WP6 | CBOM and HNDL scoring | review | | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
+| WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
 | WP7 | Local runner and CBOM ingest | todo | | D1 confirmed 2026-10-04 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | review | | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
