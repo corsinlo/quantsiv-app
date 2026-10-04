@@ -9,7 +9,8 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP6 have landed (PRs #2-#7) and WP9 (performance) is in review. D1 and D7
+WP0-WP6 and WP9 have landed (PRs #2-#8); the ingest half of WP7 is in review (its scanner half
+waits for D2). D1 and D7
 are confirmed. The app **signs users in with GitHub, stores installations, queues scans of public
 repositories, and can score findings and build CBOMs, but has no scan engine yet (D2)**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data

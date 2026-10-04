@@ -29,7 +29,7 @@ that changes.
 | WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
 | WP7 | Local runner and CBOM ingest | review (ingest) / blocked (scanner, D2) | | Ingest, tokens, delta gate and export built; CLI and CI templates wait for D2 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
-| WP9 | Performance | review | | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
+| WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
 | WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed (D7 confirmed 2026-10-04). No LLM in this WP |
 
 ## Founder decisions
