@@ -10,6 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
+COPY quantsiv_scanner/ ./quantsiv_scanner/
 # Migrations run from this image before each deploy (railway.toml preDeployCommand)
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
@@ -28,6 +29,8 @@ WORKDIR /app
 COPY requirements-worker.txt .
 RUN pip install --no-cache-dir -r requirements-worker.txt
 COPY app/ ./app/
+# The worker runs the scan engine as a separate process (ScanPipeline.scan_source)
+COPY quantsiv_scanner/ ./quantsiv_scanner/
 RUN adduser --disabled-password --gecos '' appuser
 USER appuser
 CMD ["python", "-m", "arq", "app.worker.WorkerSettings"]

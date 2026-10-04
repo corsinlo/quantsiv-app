@@ -94,6 +94,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build --target ${{ matrix.target }} -t quantsiv-${{ matrix.target }} .
+      - name: Worker image can run the engine (what ScanPipeline.scan_source executes)
+        if: matrix.target == 'worker'
+        run: |
+          docker run --rm --network none -v "$PWD/tests/scanner/fixtures/sample:/src" --entrypoint python quantsiv-worker \
+            -m quantsiv_scanner scan /src --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["findings"], d'
       - name: Scanner image scans the fixture offline
         if: matrix.target == 'scanner'
         run: |
