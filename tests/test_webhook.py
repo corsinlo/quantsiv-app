@@ -139,3 +139,18 @@ async def test_branch_deletion_is_ignored():
         "ignored-deleted-branch"
     )
     assert redis.calls == []
+
+
+async def test_info_logs_carry_no_account_names(caplog):
+    caplog.set_level("INFO", logger="app")
+    payload = {"action": "created", "installation": {"id": 7, "account": {"login": "acme-corp"}}}
+    await worker.handle_github_event({}, "installation", payload)
+    assert "acme-corp" not in caplog.text
+    assert "7" in caplog.text
+
+
+def test_no_print_calls_in_app():
+    from pathlib import Path
+
+    for path in Path("app").rglob("*.py"):
+        assert "print(" not in path.read_text(encoding="utf-8"), path

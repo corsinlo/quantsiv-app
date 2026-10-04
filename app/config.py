@@ -1,5 +1,6 @@
 """Application settings. Secrets come only from here (A10)."""
 
+import logging
 from functools import lru_cache
 
 from pydantic import SecretStr
@@ -23,8 +24,20 @@ class Settings(BaseSettings):
     stripe_webhook_secret: SecretStr | None = None
     database_url: str = "sqlite:///./quantsiv.db"
     redis_url: str = "redis://localhost:6379/0"
+    # INFO carries no personal data (account or repo names); those are DEBUG only (A25)
+    log_level: str = "INFO"
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()  # missing required secrets fail at startup, never at request time
+
+
+def configure_logging() -> None:
+    """Send app.* logs to stderr at LOG_LEVEL. Idempotent; uvicorn and arq keep their own."""
+    logger = logging.getLogger("app")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        logger.addHandler(handler)
+    logger.setLevel(get_settings().log_level.upper())

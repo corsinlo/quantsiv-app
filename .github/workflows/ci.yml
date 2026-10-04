@@ -32,6 +32,18 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: python -m playwright install --with-deps chromium
       - run: pytest -m a11y
+  assets:
+    # app/static/app.css and htmx.min.js are committed build output: fail if they drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: git diff --exit-code -- app/static
   docker:
     runs-on: ubuntu-latest
     strategy:

@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import auth
 from app.api import router
-from app.config import get_settings
+from app.config import configure_logging, get_settings
 from app.queue import close_queue
 from app.routers import webhooks
 from app.security import security_headers
@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging()
     is_prod = settings.env == "production"
     app = FastAPI(
         title="Quantsiv",

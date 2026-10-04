@@ -5,3 +5,4 @@ tests/
 docs/
 *.md
 app/**/test*.txt
+node_modules/

@@ -15,7 +15,8 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | --- | --- | --- |
 | FastAPI app serving `/` and `/health` | Prototype: boots under uvicorn; smoke tests and a Docker build in CI | `app/main.py`, WP1 |
 | Dashboard and scan pages (Jinja2 + htmx) | Prototype: no placeholder data; empty states until scans are stored (WP4). Checked against WCAG 2.1 A/AA with axe-core in CI | WP2 |
-| GitHub webhook handler | Prototype: mounted and verifies the signature with the configured secret; not hardened (A11-A13) and does nothing with events | WP3 |
+| GitHub webhook handler | Built: signature check, size limit, deduplicated queueing; the worker filters events. Storing installations waits for WP4 | WP3 |
+| Sign-in (GitHub OAuth), sessions, CSRF, security headers | Built; per-tenant scoping is enforced through the scan store interface, which has no database until WP4 | WP3 |
 | Data model (Postgres) and ARQ worker | Not built: the worker starts, but its jobs are no-ops | WP4 |
 | Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |
 | TLS scanning (sslyze, verified domains only) | Planned | WP5 |
@@ -58,6 +59,7 @@ command in each file's header.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
+npm ci && npm run build                    # only after changing templates, JS or Tailwind
 cp .env.example .env                       # then fill the values
 uvicorn app.main:app --reload
 python -m arq app.worker.WorkerSettings    # needs REDIS_URL

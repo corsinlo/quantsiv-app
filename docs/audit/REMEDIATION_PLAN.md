@@ -22,8 +22,8 @@ that changes.
 | --- | --- | --- | --- | --- |
 | WP0 | Repository hygiene | done | #2 | The empty directories did not exist in the clone |
 | WP1 | Build, boot, smoke tests, CI | done | #2 | CI green (test, docker web, docker worker). Docker can't build in the cloud VM (Debian mirrors blocked); rely on CI |
-| WP2 | Honest, accessible UI | review | | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
-| WP3 | Security foundation | todo | | |
+| WP2 | Honest, accessible UI | done | #3 | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
+| WP3 | Security foundation | review | | Share links wait for WP4 (`share_links` table) |
 | WP4 | Data layer and worker | todo | | |
 | WP5 | Scan pipeline safety | todo | | Engine part blocked by D2 |
 | WP6 | CBOM and HNDL scoring | todo | | |
@@ -184,31 +184,38 @@ tests/
   violations.
 
 ## WP3 - Security foundation (A10-A14, A19, A20, A24, A25)
-- [ ] Webhook handler as in audit section 7 (A11-A13):
-  - [ ] compare signatures as bytes;
-  - [ ] enforce the 25 MB limit;
-  - [ ] return 400 for non-JSON bodies;
-  - [ ] enqueue with `_job_id=f"gh-{delivery}"`;
-  - [ ] read the account from `installation.account`;
-  - [ ] apply the default-branch filter and skip deletions.
-- [ ] Authentication (A14):
-  - [ ] GitHub OAuth login;
-  - [ ] sessions (pick one design deliberately: opaque ID plus a `sessions` table, or
-        `SessionMiddleware`);
-  - [ ] a `current_user` dependency;
-  - [ ] every scan query scoped through installations (404 when the scan isn't the user's);
-  - [ ] CSRF on POSTs (htmx `hx-headers`);
-  - [ ] `POST /api/scans` validates the repo against the installation's repository list.
-- [ ] Self-host assets (A19):
-  - [ ] Tailwind standalone CLI build to `app/static/app.css`;
-  - [ ] vendor htmx into `app/static/js/` with `defer`;
-  - [ ] delete Alpine;
-  - [ ] add `app/static/vendor/LICENSES.md` (MIT notices).
-- [ ] Move every inline script and `onclick` into `app/static/js/*.js`, and remove inline
+- [x] Webhook handler as in audit section 7 (A11-A13):
+  - [x] compare signatures as bytes;
+  - [x] enforce the 25 MB limit;
+  - [x] return 400 for non-JSON bodies;
+  - [x] enqueue with `_job_id=f"gh-{delivery}"`;
+  - [x] read the account from `installation.account`;
+  - [x] apply the default-branch filter and skip deletions.
+- [x] Authentication (A14):
+  - [x] GitHub OAuth login;
+  - [x] sessions (pick one design deliberately: opaque ID plus a `sessions` table, or
+        `SessionMiddleware`); (chosen: `SessionMiddleware`, because there is no database
+        before WP4. Revocation is by the 8-hour expiry or by rotating `SESSION_SECRET`; see
+        `app/auth.py`)
+  - [x] a `current_user` dependency;
+  - [x] every scan query scoped through installations (404 when the scan isn't the user's);
+        (the `ScanStore` interface takes the user id; WP4's database store must join through
+        installations as in audit section 7)
+  - [x] CSRF on POSTs (htmx `hx-headers`);
+  - [x] `POST /api/scans` validates the repo against the installation's repository list.
+        (through the `RepoAccess` interface; its real implementation needs installation
+        tokens, so it answers 501 until WP5)
+- [x] Self-host assets (A19):
+  - [x] Tailwind standalone CLI build to `app/static/app.css`; (the `tailwindcss` npm CLI,
+        pinned in `package.json`; CI fails if the committed output drifts)
+  - [x] vendor htmx into `app/static/js/` with `defer`;
+  - [x] delete Alpine;
+  - [x] add `app/static/vendor/LICENSES.md` (MIT notices).
+- [x] Move every inline script and `onclick` into `app/static/js/*.js`, and remove inline
       `style` attributes (A20).
-- [ ] Add the security headers middleware (audit section 7, plus `object-src 'none'`) and the
+- [x] Add the security headers middleware (audit section 7, plus `object-src 'none'`) and the
       htmx-config meta (A20).
-- [ ] Replace `print()` with `logging`; no personal data at INFO (A25).
+- [x] Replace `print()` with `logging`; no personal data at INFO (A25).
 - [ ] Share links (A23): hashed tokens from the WP4 `share_links` table, `/share/` paths masked
       in access logs, and `Referrer-Policy: no-referrer` on share pages. Build this when the
       share feature is built; it depends on WP4.
