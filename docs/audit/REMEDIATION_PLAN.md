@@ -20,7 +20,7 @@ that changes.
 
 | WP | Title | Status | PR | Notes |
 | --- | --- | --- | --- | --- |
-| WP0 | Repository hygiene | todo | | |
+| WP0 | Repository hygiene | review | | Branch `claude/quantsiv-app-mvp-handover-j1d0oi`; acceptance checks pass locally. The empty dirs did not exist in the clone |
 | WP1 | Build, boot, smoke tests, CI | todo | | |
 | WP2 | Honest, accessible UI | todo | | |
 | WP3 | Security foundation | todo | | |
@@ -76,25 +76,25 @@ tests/
 ---
 
 ## WP0 - Repository hygiene (A49, A21, part of A03)
-- [ ] Delete `app/test.txt`, `app/test2.txt`, `app/test3.txt`, `app/test5.txt`, `app/test7.txt`,
+- [x] Delete `app/test.txt`, `app/test2.txt`, `app/test3.txt`, `app/test5.txt`, `app/test7.txt`,
       `app/simple.txt` and `app/models2.py`.
-- [ ] Delete the empty directories `app/api/`, `app/models/` and `app/worker/` if they exist.
-- [ ] Add an empty `app/__init__.py`.
-- [ ] Re-save `app/models.py` as UTF-8 without a BOM. WP4 rewrites it; for now it holds
+- [x] Delete the empty directories `app/api/`, `app/models/` and `app/worker/` if they exist.
+- [x] Add an empty `app/__init__.py`.
+- [x] Re-save `app/models.py` as UTF-8 without a BOM. WP4 rewrites it; for now it holds
       placeholder model classes so imports work.
-- [ ] Add `.editorconfig`: `root = true`, then under `[*]` set `charset = utf-8`,
+- [x] Add `.editorconfig`: `root = true`, then under `[*]` set `charset = utf-8`,
       `end_of_line = lf` and `insert_final_newline = true`.
-- [ ] Add `.gitattributes` containing `* text=auto eol=lf` (plus `*.png binary`).
+- [x] Add `.gitattributes` containing `* text=auto eol=lf` (plus `*.png binary`).
       Then run `git add --renormalize .`. The stored blobs are already LF (Windows checkouts
       convert them through `core.autocrlf`), so expect no content changes. The file only pins
       LF for every contributor.
-- [ ] `.gitignore`:
+- [x] `.gitignore`:
   - replace `*key*` with `*.key`, `*.pem` and `github-app-*.pem`;
   - stop ignoring `.env.example`;
   - remove the duplicate `.env`;
   - change `cython_debug.sqlite` to `cython_debug/`.
-- [ ] Add `.env.example`, listing every Settings field with an empty value.
-- [ ] Add `.dockerignore`: `.git`, `.env*`, `tests/`, `docs/`, `*.md`.
+- [x] Add `.env.example`, listing every Settings field with an empty value.
+- [x] Add `.dockerignore`: `.git`, `.env*`, `tests/`, `docs/`, `*.md`.
 
 **Acceptance:**
 - `git ls-files app | grep -E 'test[0-9]*\.txt|simple\.txt|models2'` prints nothing.
