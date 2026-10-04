@@ -9,3 +9,5 @@ pydantic-settings==2.15.0
 sslyze==6.3.1
 asyncpg
 aiosqlite
+# quantsiv.yml: declared data lifetimes (WP6)
+pyyaml

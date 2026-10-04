@@ -39,10 +39,16 @@
                 Completed: {{ scan.completed_at|display_datetime }}
             </div>
             <div class="flex space-x-3">
+                {% if scan.has_cbom %}
+                <a href="/api/scans/{{ scan.id }}/cbom" download
+                   class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 underline">
+                    Download CBOM (CycloneDX 1.6)
+                </a>
+                {% endif %}
                 <button
                     type="button"
                     disabled aria-disabled="true" title="Coming soon"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md disabled:opacity-50"
                 >
                     Export Compliance Report (coming soon)
                 </button>
@@ -119,6 +125,13 @@
                                        {% else %}bg-green-100 text-green-800{% endif %}">
                                     {{ (finding.severity or 'unrated')|upper }}
                                 </span>
+                                {% if finding.track %}
+                                <span class="block mt-1 text-xs text-gray-700">
+                                    {%- if finding.track == "HNDL" %}HNDL · {{ finding.lifetime_years }}-year data
+                                    {%- elif finding.track == "signature deadline" %}Signature deadline
+                                    {%- else %}Severity{% endif -%}
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                 {{ finding.algorithm }}
@@ -164,6 +177,9 @@
                                             computer could break with Shor's algorithm.
                                         </p>
                                         {% endif %}
+                                        {% if finding.reason %}
+                                        <p class="text-gray-700 mb-2"><strong>Ranking:</strong> {{ finding.reason }}</p>
+                                        {% endif %}
                                         {% if finding.primitive in HNDL_EXPOSED %}
                                         <p class="text-gray-700 mt-2">
                                             <strong>Harvest now, decrypt later:</strong> data protected by this key
@@ -172,6 +188,13 @@
                                             31 December 2030 for post-quantum key establishment on high-value assets
                                             and high-impact systems.
                                         </p>
+                                        {% if finding.track != "HNDL" %}
+                                        <p class="text-gray-700 mt-2">
+                                            No data lifetime is declared for this repository, so this is ranked
+                                            by severity only. Declare one in <code>quantsiv.yml</code> to rank it
+                                            by HNDL exposure.
+                                        </p>
+                                        {% endif %}
                                         {% elif finding.primitive == "signature" %}
                                         <p class="text-gray-700 mt-2">
                                             For signatures the risk is future forgery, not retroactive decryption.

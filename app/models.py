@@ -109,6 +109,10 @@ class Finding(Base):
     algorithm_family: Mapped[str | None] = mapped_column(String(20))
     # CycloneDX crypto primitive (signature, key-agree, kem, pke, ...); WP6 fills it
     primitive: Mapped[str | None] = mapped_column(String(20))
+    # Dual-track scoring (WP6): "HNDL", "signature deadline" or "severity"
+    track: Mapped[str | None] = mapped_column(String(20))
+    lifetime_years: Mapped[int | None] = mapped_column(Integer)
+    reason: Mapped[str | None] = mapped_column(Text)
     key_size: Mapped[int | None] = mapped_column(Integer)
     quantum_safe: Mapped[bool] = mapped_column(Boolean, default=False)
     severity: Mapped[str] = mapped_column(String(10))

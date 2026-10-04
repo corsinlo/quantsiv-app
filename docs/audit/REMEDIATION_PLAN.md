@@ -25,8 +25,8 @@ that changes.
 | WP2 | Honest, accessible UI | done | #3 | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
 | WP3 | Security foundation | done | #4 | Share links wait for WP4 (`share_links` table) |
 | WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
-| WP5 | Scan pipeline safety | review | | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
-| WP6 | CBOM and HNDL scoring | todo | | |
+| WP5 | Scan pipeline safety | done | #6 | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
+| WP6 | CBOM and HNDL scoring | review | | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
 | WP7 | Local runner and CBOM ingest | todo | | D1 confirmed 2026-10-04 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | todo | | |
@@ -274,22 +274,24 @@ tests/
   `redis.railway.internal`).
 
 ## WP6 - CBOM and HNDL scoring (A26, A28, A30, A53)
-- [ ] `services/cbom.py`: `build_cbom` from audit section 7. Delete `_generate_cbom` and the fake
-      vulnerabilities, CVSS scores and CVE (A26).
-- [ ] `services/scoring.py`:
-  - [ ] map each finding to a CycloneDX primitive;
-  - [ ] `PQC_GUIDANCE` and `HNDL_EXPOSED` (A30);
-  - [ ] a severity model by primitive and data lifetime (A53).
-- [ ] Data-lifetime input: a `quantsiv.yml` (or settings UI) that maps repos or services to data
+- [x] `services/cbom.py`: `build_cbom` from audit section 7. Delete `_generate_cbom` and the fake
+      vulnerabilities, CVSS scores and CVE (A26). (`_generate_cbom` went in WP4.)
+- [x] `services/scoring.py`:
+  - [x] map each finding to a CycloneDX primitive;
+  - [x] `PQC_GUIDANCE` and `HNDL_EXPOSED` (A30);
+  - [x] a severity model by primitive and data lifetime (A53).
+- [x] Data-lifetime input: a `quantsiv.yml` (or settings UI) that maps repos or services to data
       classes and confidentiality lifetimes. The HNDL score uses it; without it, label the score
-      "severity score", not "HNDL" (A28).
-- [ ] Remove AES-128 from any "quantum-vulnerable" list (A30).
-- [ ] Make the score dual-track (D6):
+      "severity score", not "HNDL" (A28). (`services/lifetimes.py`; read from the scanned
+      repository's root. No settings UI yet.)
+- [x] Remove AES-128 from any "quantum-vulnerable" list (A30). (Symmetric primitives and hashes
+      are never classed as quantum-vulnerable; tested.)
+- [x] Make the score dual-track (D6):
   - **Confidentiality findings** (`key-agree`, `kem`, `pke`) are ranked by declared data
     lifetime and labelled "HNDL".
   - **Signature findings** are ranked by deadline (EO 14412's 31 Dec 2031 by default,
     configurable) and by the trust lifetime of what they sign, and labelled "signature deadline".
-- [ ] Write declared lifetimes into the CBOM as a namespaced property, e.g.
+- [x] Write declared lifetimes into the CBOM as a namespaced property, e.g.
       `quantsiv:confidentiality-lifetime-years`.
 
 **Acceptance:**

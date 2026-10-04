@@ -95,3 +95,44 @@ async def test_repo_access_needs_github_and_ownership():
         assert await covered.installation_for(5999, "dave/tool") is None  # not the owner
         uncovered = GitHubRepoAccess(db, FakeGitHub(installation=None).app())
         assert await uncovered.installation_for(5201, "dave/tool") is None
+
+
+async def test_cbom_download_is_scoped():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from tests.helpers import sign_in
+
+    async with get_sessionmaker()() as db:
+        erin = User(github_user_id=5301, github_login="erin")
+        db.add(
+            Scan(
+                installation=Installation(
+                    github_installation_id=6301, account_name="erin", account_type="User", user=erin
+                ),
+                repo_full_name="erin/app",
+                triggered_by="manual",
+                status=ScanStatus.DONE,
+                cbom=CbomSnapshot(cbom_json={"bomFormat": "CycloneDX", "specVersion": "1.6"}),
+            )
+        )
+        await db.commit()
+        scan_id = (await db.scalar(select_scan("erin/app"))).id
+    with TestClient(app) as client:
+        sign_in(client, user={"id": 5301, "login": "erin"})
+        response = client.get(f"/api/scans/{scan_id}/cbom")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/vnd.cyclonedx+json")
+        assert "attachment" in response.headers["content-disposition"]
+        assert response.json()["specVersion"] == "1.6"
+        page = client.get(f"/dashboard/scans/{scan_id}").text
+        assert f'href="/api/scans/{scan_id}/cbom"' in page
+    with TestClient(app) as other:
+        sign_in(other, user={"id": 5302, "login": "frank"})
+        assert other.get(f"/api/scans/{scan_id}/cbom").status_code == 404
+
+
+def select_scan(repo):
+    from sqlalchemy import select
+
+    return select(Scan).where(Scan.repo_full_name == repo)

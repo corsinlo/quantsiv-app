@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app import worker
 from app.models import Installation, Scan, ScanStatus, User
 from app.services.errors import ScanError
+from app.services.lifetimes import Lifetimes
 from tests.github_mock import FakeGitHub
 
 
@@ -100,6 +101,7 @@ class Works(worker.ScanPipeline):
 
         assert os.path.isdir(workdir)
         self.workdirs.append(workdir)
+        return worker.ScanResult(findings=[], lifetimes=Lifetimes())
 
 
 async def test_successful_pipeline_marks_done_and_cleans_up(worker_ctx):
@@ -149,3 +151,66 @@ async def test_scan_error_is_user_safe():
 
 async def test_delete_account_is_a_stub():
     assert await worker.delete_account({}, 1) is None
+
+
+ENGINE_OUTPUT = [
+    {
+        "algorithm": "RSA",
+        "context_label": "JWT signing",
+        "key_size": 2048,
+        "file_path": "a.py",
+        "raw_match": "jwt.encode(payload, key, 'RS256')",
+    },
+    {"algorithm": "ECDH", "file_path": "net.py", "line_number": 3},
+    {"algorithm": "AES", "key_size": 128, "file_path": "store.py"},
+]
+
+
+class Engine(worker.ScanPipeline):
+    def __init__(self, lifetimes):
+        self.lifetimes = lifetimes
+
+    async def run(self, scan, workdir, installation_id):
+        return worker.ScanResult(findings=ENGINE_OUTPUT, lifetimes=self.lifetimes)
+
+
+async def test_results_are_scored_ranked_and_stored_with_a_cbom(worker_ctx):
+    from sqlalchemy.orm import selectinload
+
+    lifetimes = Lifetimes(data_classes={"records": 25}, repositories={"o/r": "records"})
+    await _installation(worker_ctx, 8010)
+    scan_id = await worker.scan_repository(worker_ctx, 8010, "o/r", pipeline=Engine(lifetimes))
+    async with worker_ctx["sessionmaker"]() as db:
+        scan = await db.scalar(
+            select(Scan)
+            .where(Scan.id == scan_id)
+            .options(selectinload(Scan.findings), selectinload(Scan.cbom))
+        )
+    assert scan.status == ScanStatus.DONE
+    tracks = [(f.algorithm, f.track, f.severity) for f in scan.findings]
+    assert tracks[0] == ("ECDH", "HNDL", "critical")  # 25-year data outranks the token signature
+    assert ("RSA", "signature deadline", "medium") in tracks
+    assert ("AES", "severity", "info") in tracks  # AES-128 is not quantum-vulnerable (A30)
+    rsa = next(f for f in scan.findings if f.algorithm == "RSA")
+    assert rsa.raw_match is None and len(rsa.snippet_hash) == 64  # snippets are opt-in (A39)
+    assert scan.cbom.risk_score == 25 + 5  # one critical, one medium: a severity score
+    components = scan.cbom.cbom_json["components"]
+    assert any(
+        p == {"name": "quantsiv:confidentiality-lifetime-years", "value": "25"}
+        for c in components
+        for p in c.get("properties", [])
+    )
+
+
+async def test_quantsiv_yml_is_read_safely(tmp_path):
+    (tmp_path / "quantsiv.yml").write_text(
+        "data_classes:\n  pii: {confidentiality_lifetime_years: 30}\nrepositories:\n  o/r: pii\n"
+    )
+    assert worker.read_lifetimes(str(tmp_path)).confidentiality_years("o/r") == 30
+    assert worker.read_lifetimes(str(tmp_path / "missing")).data_classes == {}
+
+
+async def test_symlinked_quantsiv_yml_is_ignored(tmp_path):
+    (tmp_path / "secret").write_text("data_classes: {}")
+    (tmp_path / "quantsiv.yml").symlink_to(tmp_path / "secret")
+    assert worker.read_lifetimes(str(tmp_path)) == Lifetimes()

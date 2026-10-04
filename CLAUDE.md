@@ -9,9 +9,9 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP4 have landed (PRs #2-#5) and WP5 (scan pipeline safety) is in review. D1 and D7 are
-confirmed. The app **signs users in with GitHub, stores installations, and queues scans of public
-repositories, but has no scan engine yet (D2)**:
+WP0-WP5 have landed (PRs #2-#6) and WP6 (CBOM and dual-track scoring) is in review. D1 and D7
+are confirmed. The app **signs users in with GitHub, stores installations, queues scans of public
+repositories, and can score findings and build CBOMs, but has no scan engine yet (D2)**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
   (empty states otherwise). Routes read scans through `app/scans.py` (`DbScanStore`), scoped in
   SQL to the signed-in user's installations;
@@ -20,6 +20,10 @@ repositories, but has no scan engine yet (D2)**:
 - a scan gets a down-scoped token, refuses private or oversized repos, clones with the hardened
   clone, revokes the token, then fails with "The scan engine is not available yet." (D2). Never
   let a stub produce findings. Hosted-scanning rules: `docs/hosted-scanning.md`;
+- once the engine returns findings, `worker.record_results` scores them on the dual track
+  (`services/scoring.py`: HNDL by the lifetimes declared in the repo's `quantsiv.yml`,
+  signature deadline otherwise), stores them, and stores a CycloneDX 1.6 CBOM
+  (`services/cbom.py`). "Built to emit" still applies to the product copy until D2 lands;
 - `pytest -m a11y` runs the axe-core WCAG check (Playwright Chromium; in this cloud VM set
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Plain `pytest` skips it;
 - sign-in is GitHub OAuth with a signed session cookie (`app/auth.py`); every page needs it, and
