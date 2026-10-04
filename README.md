@@ -23,9 +23,9 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | TLS scanning (sslyze, verified domains only) | Planned; the SSRF guard it must use is built | later |
 | CycloneDX 1.6 CBOM output, per-scan download | Built and validated against the 1.6 schema; no scan produces findings until the engine (D2) exists | WP6 |
 | HNDL scoring from declared data lifetimes (`quantsiv.yml`), plus a separate signature-deadline track | Built; same caveat (D2) | WP6 |
-| CBOM import (any CycloneDX 1.6) and export | Planned | WP7 |
+| CBOM import (any CycloneDX 1.6) with provenance, delta gate, estate export, org API tokens | Built | WP7 |
 | Agent foundations: read-only policy MCP server for AI coding assistants, gate explainer | Planned; needs WP7 | WP10 |
-| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; delivery model D1 confirmed | WP7 |
+| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; blocked by the engine choice (D2) | WP7 |
 | Legal pages | Planned; content needs decision D4 | WP8 |
 | Evidence reports (PDF), billing, emails | Planned; requirements are in WP8, pricing needs decision D5 | WP8 |
 

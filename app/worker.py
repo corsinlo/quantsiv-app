@@ -5,7 +5,6 @@ Start it with `python -m arq app.worker.WorkerSettings`.
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -22,7 +21,6 @@ from app.config import configure_logging, get_settings
 from app.db import make_engine
 from app.models import (
     CbomSnapshot,
-    Finding,
     Installation,
     Scan,
     ScanStatus,
@@ -34,7 +32,8 @@ from app.services.clone import clone_repository
 from app.services.errors import ScanError
 from app.services.github import GitHubApp
 from app.services.lifetimes import Lifetimes, parse_lifetimes
-from app.services.scoring import assess, is_quantum_vulnerable, rank_key, severity_score
+from app.services.results import finding_rows, score
+from app.services.scoring import severity_score
 
 logger = logging.getLogger(__name__)
 configure_logging()
@@ -96,36 +95,8 @@ async def record_results(
     db: AsyncSession, scan: Scan, installation: Installation, result: ScanResult
 ) -> None:
     """Score the engine's findings on the dual track (WP6), store them, and store the CBOM."""
-    today = utcnow().date()
-    scored = []
-    for raw in result.findings:
-        verdict = assess(raw, scan.repo_full_name, result.lifetimes, today)
-        scored.append((verdict, raw))
-    scored.sort(key=lambda pair: rank_key(pair[0]))
-    rows = []
-    for verdict, raw in scored:
-        snippet = raw.get("raw_match")
-        rows.append(
-            Finding(
-                file_path=raw.get("file_path"),
-                line_number=raw.get("line_number"),
-                algorithm=str(raw.get("algorithm") or "unknown")[:50],
-                algorithm_family=raw.get("algorithm_family"),
-                primitive=verdict.primitive,
-                track=verdict.track,
-                lifetime_years=verdict.lifetime_years,
-                reason=verdict.reason,
-                key_size=raw.get("key_size"),
-                quantum_safe=not is_quantum_vulnerable(raw),
-                severity=verdict.severity,
-                confidence=raw.get("confidence"),
-                context_label=raw.get("context_label"),
-                # Raw code is opt-in per tenant; otherwise keep only its hash (A39)
-                raw_match=snippet if snippet and installation.store_code_snippets else None,
-                snippet_hash=hashlib.sha256(snippet.encode()).hexdigest() if snippet else None,
-            )
-        )
-    scan.findings = rows
+    scored = score(result.findings, scan.repo_full_name, result.lifetimes, utcnow().date())
+    scan.findings = finding_rows(scored, installation)
     cbom_input = [
         {**raw, "primitive": v.primitive, "track": v.track, "lifetime_years": v.lifetime_years}
         for v, raw in scored
@@ -133,6 +104,7 @@ async def record_results(
     scan.cbom = CbomSnapshot(
         cbom_json=json.loads(build_cbom(cbom_input, scan.repo_full_name)),
         risk_score=severity_score([v.severity for v, _ in scored]),
+        producer="Quantsiv hosted scan",
     )
 
 

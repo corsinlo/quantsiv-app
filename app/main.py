@@ -12,7 +12,7 @@ from app import auth
 from app.api import router
 from app.config import configure_logging, get_settings
 from app.queue import close_queue
-from app.routers import webhooks
+from app.routers import tokens, v1, webhooks
 from app.security import security_headers
 
 
@@ -47,6 +47,8 @@ def create_app() -> FastAPI:
     app.include_router(router)  # "/" and "/health" live in the router only
     app.include_router(webhooks.router)
     app.include_router(auth.router)
+    app.include_router(v1.router)
+    app.include_router(tokens.router)
     return app
 
 

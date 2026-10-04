@@ -31,6 +31,10 @@
                     </div>
                     {% if user %}
                     <div class="flex items-center space-x-4">
+                        <nav aria-label="Main" class="flex items-center space-x-4 text-sm">
+                            <a href="/dashboard" class="text-indigo-700 underline">Dashboard</a>
+                            <a href="/dashboard/tokens" class="text-indigo-700 underline">API tokens</a>
+                        </nav>
                         <span class="text-sm text-gray-700">Signed in as {{ user.login }}</span>
                         <form method="post" action="/auth/logout">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">

@@ -131,6 +131,8 @@ class CbomSnapshot(Base):
     scan_id: Mapped[int] = mapped_column(ForeignKey("scans.id", ondelete="CASCADE"), unique=True)
     cbom_json: Mapped[dict] = mapped_column(JSON)
     risk_score: Mapped[int | None] = mapped_column(Integer)
+    # Provenance (WP7): the tool that produced the CBOM, from metadata.tools
+    producer: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     scan: Mapped[Scan] = relationship(back_populates="cbom")
@@ -152,6 +154,28 @@ class TlsScan(Base):
     tls_version: Mapped[str | None] = mapped_column(String(20))
     quantum_safe: Mapped[bool] = mapped_column(Boolean, default=False)
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ApiToken(Base):
+    """Organisation API tokens for CI uploads (WP7): `qsv_` + 32 random bytes, stored only as
+    SHA-256, shown once, revocable. Scoped to one installation."""
+
+    __tablename__ = "api_tokens"
+    __table_args__ = (UniqueConstraint("token_hash"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    installation_id: Mapped[int] = mapped_column(
+        ForeignKey("installations.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[bytes] = mapped_column(LargeBinary(32))
+    prefix: Mapped[str] = mapped_column(String(12))  # shown in the list, e.g. "qsv_AbCd"
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    installation: Mapped[Installation] = relationship()
 
 
 class ShareLink(Base):

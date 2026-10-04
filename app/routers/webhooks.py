@@ -11,22 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.config import Settings, get_settings
 from app.queue import JobQueue, get_queue
+from app.request_body import read_body
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 MAX_BODY = 25 * 1024 * 1024  # GitHub caps webhook payloads at 25 MB
-
-
-async def _read_body(request: Request) -> bytes:
-    if int(request.headers.get("content-length") or 0) > MAX_BODY:
-        raise HTTPException(413, "payload too large")
-    body = bytearray()
-    async for chunk in request.stream():  # chunked bodies have no content-length
-        body.extend(chunk)
-        if len(body) > MAX_BODY:
-            raise HTTPException(413, "payload too large")
-    return bytes(body)
 
 
 @router.post("/webhook/github", status_code=202)
@@ -35,7 +25,7 @@ async def github_webhook(
     settings: Annotated[Settings, Depends(get_settings)],
     queue: Annotated[JobQueue, Depends(get_queue)],
 ):
-    body = await _read_body(request)
+    body = await read_body(request, MAX_BODY)
     secret = settings.github_webhook_secret.get_secret_value().encode()
     expected = b"sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest().encode()
     # Compare bytes: str comparison raises TypeError (a 500) on non-ASCII input
