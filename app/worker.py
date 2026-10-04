@@ -315,8 +315,35 @@ async def scan_repository(
     logger.info("scan_repository: not implemented until WP4")
 
 
-async def handle_github_event(ctx: dict, event: str, payload: dict) -> None:
-    logger.info("handle_github_event: not implemented until WP3/WP4")
+async def handle_github_event(ctx: dict, event: str, payload: dict) -> str:
+    """Process a verified GitHub webhook (A12, A13). Returns what was done, for the job result.
+
+    Storing installations needs the data layer (WP4); until then installation events are logged
+    by ID only (no account names at INFO, A25).
+    """
+    action = payload.get("action")
+    if event == "installation":
+        installation = payload.get("installation") or {}
+        account = installation.get("account") or {}  # not payload["account"] (A12)
+        logger.info("installation %s: %s", action, installation.get("id"))
+        logger.debug("installation account %s (%s)", account.get("login"), account.get("type"))
+        return f"installation-{action}"
+    if event == "push":
+        repo = payload.get("repository") or {}
+        if payload.get("deleted"):
+            return "ignored-deleted-branch"
+        if not repo.get("default_branch") or payload.get("ref") != (
+            f"refs/heads/{repo['default_branch']}"
+        ):
+            return "ignored-non-default-ref"  # tags, other and nested branches (A13)
+        await ctx["redis"].enqueue_job(
+            "scan_repository",
+            payload["installation"]["id"],
+            repo["full_name"],
+            triggered_by="push",
+        )
+        return "scan-queued"
+    return f"ignored-{event}"
 
 
 async def delete_account(ctx: dict, user_id: int) -> None:
