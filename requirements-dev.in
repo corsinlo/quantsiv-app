@@ -7,3 +7,6 @@ pytest-cov
 httpx
 ruff==0.16.10
 pip-audit
+# WCAG check (WP2): pytest -m a11y; needs `python -m playwright install chromium`
+playwright==1.63.0
+axe-playwright-python==0.1.8

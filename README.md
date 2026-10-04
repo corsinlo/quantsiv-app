@@ -14,7 +14,7 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | Capability | Status | Where |
 | --- | --- | --- |
 | FastAPI app serving `/` and `/health` | Prototype: boots under uvicorn; smoke tests and a Docker build in CI | `app/main.py`, WP1 |
-| Dashboard and scan pages (Jinja2 + htmx) | Prototype templates that render, with placeholder data; actions without a route are disabled | WP1, WP2 |
+| Dashboard and scan pages (Jinja2 + htmx) | Prototype: no placeholder data; empty states until scans are stored (WP4). Checked against WCAG 2.1 A/AA with axe-core in CI | WP2 |
 | GitHub webhook handler | Prototype: mounted and verifies the signature with the configured secret; not hardened (A11-A13) and does nothing with events | WP3 |
 | Data model (Postgres) and ARQ worker | Not built: the worker starts, but its jobs are no-ops | WP4 |
 | Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |

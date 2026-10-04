@@ -1,39 +1,40 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set public_key_primitives = ["signature"] + HNDL_EXPOSED|list %}
 <div class="space-y-6">
     <!-- Scan Header -->
     <div class="border-b pb-4">
         <div class="flex justify-between items-start">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">
-                    Scan Results
+                    Scan results
                 </h1>
-                <p class="mt-1 text-sm text-gray-500">
+                <p class="mt-1 text-sm text-gray-600">
                     {{ scan.repo_full_name }} • Scan #{{ scan.id }}
                 </p>
             </div>
             <div class="flex items-center space-x-3">
                 <span class="px-3 py-1 rounded-full text-xs font-medium
-                       {% if scan.status == 'done' %}bg-green-100 text-green-800
-                       {% elif scan.status == 'running' %}bg-blue-100 text-blue-800
-                       {% else %}bg-red-100 text-red-800{% endif %}">
+                       {% if scan.status == ScanStatus.DONE %}bg-green-100 text-green-800
+                       {% elif scan.status == ScanStatus.RUNNING %}bg-blue-100 text-blue-800
+                       {% elif scan.status == ScanStatus.FAILED %}bg-red-100 text-red-800
+                       {% else %}bg-gray-100 text-gray-800{% endif %}">
                     {{ scan.status|title }}
                 </span>
 
-                {% if scan.status == 'done' %}
-                <div class="flex items-center space-x-2">
-                    <div class="w-2 h-2 bg-indigo-600 rounded-full"></div>
-                    <span class="text-sm text-gray-600">Risk Score: <strong class="text-indigo-600">{{ scan.risk_score }}/100</strong></span>
-                </div>
+                {% if scan.status == ScanStatus.DONE and scan.risk_score is not none %}
+                <span class="text-sm text-gray-700">
+                    Severity score: <strong class="text-indigo-700">{{ scan.risk_score }}/100</strong>
+                </span>
                 {% endif %}
             </div>
         </div>
 
-        {% if scan.status == 'done' %}
+        {% if scan.status == ScanStatus.DONE %}
         <div class="mt-4 flex justify-between">
-            <div class="text-sm text-gray-500">
-                Completed: {{ scan.completed_at.strftime('%B %d, %Y at %I:%M %p') if scan.completed_at else 'Just now' }}
+            <div class="text-sm text-gray-600">
+                Completed: {{ scan.completed_at|display_datetime }}
             </div>
             <div class="flex space-x-3">
                 <button
@@ -55,39 +56,28 @@
         {% endif %}
     </div>
 
-    {% if scan.status == 'done' %}
-    <!-- Risk Score Breakdown -->
+    {% if scan.status == ScanStatus.DONE %}
+    {% set findings = scan.findings or [] %}
+    <!-- Severity breakdown -->
     <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4">
-            <h2 class="text-lg font-bold text-gray-900 mb-4">Risk Score Breakdown</h2>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Findings by severity</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div>
-                    <p class="text-xs font-medium text-gray-500">Critical</p>
-                    <p class="text-2xl font-bold text-red-600" id="critical-count">
-                        {% set critical = scan.findings|selectattr('severity', 'equalto', 'critical')|list %}
-                        {{ critical|length }}
-                    </p>
+                    <p class="text-xs font-medium text-gray-600">Critical</p>
+                    <p class="text-2xl font-bold text-red-600" id="critical-count">{{ findings|selectattr('severity', 'equalto', 'critical')|list|length }}</p>
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-gray-500">High</p>
-                    <p class="text-2xl font-bold text-orange-500" id="high-count">
-                        {% set high = scan.findings|selectattr('severity', 'equalto', 'high')|list %}
-                        {{ high|length }}
-                    </p>
+                    <p class="text-xs font-medium text-gray-600">High</p>
+                    <p class="text-2xl font-bold text-orange-700" id="high-count">{{ findings|selectattr('severity', 'equalto', 'high')|list|length }}</p>
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-gray-500">Medium</p>
-                    <p class="text-2xl font-bold text-yellow-400" id="medium-count">
-                        {% set medium = scan.findings|selectattr('severity', 'equalto', 'medium')|list %}
-                        {{ medium|length }}
-                    </p>
+                    <p class="text-xs font-medium text-gray-600">Medium</p>
+                    <p class="text-2xl font-bold text-yellow-700" id="medium-count">{{ findings|selectattr('severity', 'equalto', 'medium')|list|length }}</p>
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-gray-500">Low</p>
-                    <p class="text-2xl font-bold text-green-500" id="low-count">
-                        {% set low = scan.findings|selectattr('severity', 'equalto', 'low')|list %}
-                        {{ low|length }}
-                    </p>
+                    <p class="text-xs font-medium text-gray-600">Low</p>
+                    <p class="text-2xl font-bold text-green-700" id="low-count">{{ findings|selectattr('severity', 'equalto', 'low')|list|length }}</p>
                 </div>
             </div>
         </div>
@@ -97,39 +87,27 @@
     <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4">
             <h2 class="text-lg font-bold text-gray-900 mb-4">
-                Findings ({% if scan.findings %}{{ scan.findings|length }}{% else %}0{% endif %})
+                Findings ({{ findings|length }})
             </h2>
 
-            {% if scan.status == 'done' and scan.findings %}
+            {% if findings %}
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
+                    <caption class="sr-only">Quantum-vulnerable cryptography found in {{ scan.repo_full_name }}</caption>
                     <thead>
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Severity
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Algorithm
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Location
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Key Size
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Context
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Confidence
-                            </th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Action
-                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Severity</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Algorithm</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Location</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Key size</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Context</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Confidence</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Details</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        {% for finding in scan.findings %}
+                        {% for finding in findings %}
+                        {% set detail_id = "finding-detail-" ~ loop.index %}
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
@@ -137,89 +115,89 @@
                                        {% elif finding.severity == 'high' %}bg-orange-100 text-orange-800
                                        {% elif finding.severity == 'medium' %}bg-yellow-100 text-yellow-800
                                        {% else %}bg-green-100 text-green-800{% endif %}">
-                                    {{ finding.severity|upper }}
+                                    {{ (finding.severity or 'unrated')|upper }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                 {{ finding.algorithm }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                 {% if finding.file_path %}
-                                    <code class="bg-gray-50 px-1 py-0.5 rounded">{{ finding.file_path }}:{{ finding.line_number }}</code>
+                                    <code class="bg-gray-50 px-1 py-0.5 rounded">{{ finding.file_path }}{% if finding.line_number %}:{{ finding.line_number }}{% endif %}</code>
                                 {% else %}
-                                    <span class="text-indigo-500">TLS: {{ finding.context_label }}</span>
+                                    <span class="text-indigo-700">TLS: {{ finding.context_label or "endpoint" }}</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {% if finding.key_size %}
-                                    {{ finding.key_size }}-bit
-                                {% else %}
-                                    N/A
-                                {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ finding.key_size ~ "-bit" if finding.key_size else "—" }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ finding.context_label or 'Unknown' }}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ finding.context_label or "—" }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ "%.0f"|format((finding.confidence or 0.8) * 100) }}%
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {% if finding.confidence is number %}{{ "%.0f"|format(finding.confidence * 100) }}%{% else %}—{% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button
                                     type="button"
-                                    disabled aria-disabled="true" title="Coming soon"
-                                    class="text-indigo-600 underline disabled:opacity-50"
+                                    data-disclosure
+                                    aria-expanded="false"
+                                    aria-controls="{{ detail_id }}"
+                                    class="text-indigo-700 hover:text-indigo-900 underline"
                                 >
-                                    View Fix (coming soon)
+                                    Details<span class="sr-only"> for {{ finding.algorithm }}{% if finding.file_path %} in {{ finding.file_path }}{% endif %}</span>
                                 </button>
                             </td>
                         </tr>
 
-                        <!-- Finding detail row (hidden by default) -->
-                        <tr id="finding-detail-{{ finding.id }}" class="hidden">
+                        <tr id="{{ detail_id }}" hidden>
                             <td colspan="7" class="px-6 py-4 bg-gray-50">
                                 <div class="space-y-3">
                                     <div class="bg-white p-4 rounded-lg shadow">
-                                        <h3 class="text-lg font-bold text-gray-900 mb-2">
-                                            Risk Explanation
-                                        </h3>
-                                        <p class="text-gray-600">
-                                            {{ finding.algorithm }}-{{ finding.key_size or 'N/A' }}bit in
-                                            {{ finding.context_label }} is vulnerable to Shor's algorithm
-                                            on a fault-tolerant quantum computer.
-                                            Timeline for exploitation: ~2030-2035.
+                                        <h3 class="text-lg font-bold text-gray-900 mb-2">Risk</h3>
+                                        {% if finding.primitive in public_key_primitives %}
+                                        <p class="text-gray-700">
+                                            {{ finding.algorithm }}{% if finding.key_size %}-{{ finding.key_size }}{% endif %}
+                                            is public-key cryptography that a cryptographically relevant quantum
+                                            computer could break with Shor's algorithm.
                                         </p>
-                                        <p class="text-gray-600 mt-2">
-                                            <strong>Harvest now, decrypt later:</strong> Adversaries are
-                                            collecting encrypted traffic using this vulnerability today.
+                                        {% endif %}
+                                        {% if finding.primitive in HNDL_EXPOSED %}
+                                        <p class="text-gray-700 mt-2">
+                                            <strong>Harvest now, decrypt later:</strong> data protected by this key
+                                            establishment or encryption can be recorded today and decrypted later.
+                                            Prioritise it by how long that data must stay confidential. EO 14412 sets
+                                            31 December 2030 for post-quantum key establishment on high-value assets
+                                            and high-impact systems.
                                         </p>
+                                        {% elif finding.primitive == "signature" %}
+                                        <p class="text-gray-700 mt-2">
+                                            For signatures the risk is future forgery, not retroactive decryption.
+                                            Prioritise long-lived signing keys. EO 14412 sets 31 December 2031 for
+                                            post-quantum signatures on high-value assets and high-impact systems.
+                                        </p>
+                                        {% else %}
+                                        <p class="text-gray-700">
+                                            How this algorithm is used has not been classified yet, so no risk
+                                            explanation is shown.
+                                        </p>
+                                        {% endif %}
                                     </div>
 
+                                    {% if finding.raw_match %}
                                     <div class="bg-white p-4 rounded-lg shadow">
-                                        <h3 class="text-lg font-bold text-gray-900 mb-2">
-                                            Code Context
-                                        </h3>
+                                        <h3 class="text-lg font-bold text-gray-900 mb-2">Code context</h3>
                                         <div class="bg-gray-50 p-3 rounded">
-                                            <pre class="text-sm text-gray-800">{{ finding.raw_match or 'Code snippet not available' }}</pre>
+                                            <pre class="text-sm text-gray-800">{{ finding.raw_match }}</pre>
                                         </div>
                                     </div>
+                                    {% endif %}
 
                                     <div class="bg-white p-4 rounded-lg shadow">
-                                        <h3 class="text-lg font-bold text-gray-900 mb-2">
-                                            Migration Guidance
-                                        </h3>
-                                        <p class="text-gray-600">
-                                            Replace {{ finding.algorithm }} with quantum-safe alternative:
+                                        <h3 class="text-lg font-bold text-gray-900 mb-2">Migration guidance</h3>
+                                        <p class="text-gray-700">
+                                            {{ PQC_GUIDANCE.get(finding.primitive) or "Guidance depends on how this algorithm is used, which has not been classified yet." }}
                                         </p>
-                                        <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-600">
-                                            {% if finding.algorithm == 'RSA' or finding.algorithm == 'DH' %}
-                                                <li>ML-KEM (Kyber) for key exchange</li>
-                                            {% endif %}
-                                            {% if finding.algorithm == 'ECDSA' or finding.algorithm == 'DSA' %}
-                                                <li>ML-DSA (Dilithium) or SLH-DSA (SPHINCS+) for signatures</li>
-                                            {% endif %}
-                                            <li>Update dependencies to latest versions</li>
-                                            <li>Consider hybrid approach during transition period</li>
-                                        </ul>
                                     </div>
                                 </div>
                             </td>
@@ -228,35 +206,27 @@
                     </tbody>
                 </table>
             </div>
-
-            {% elif scan.status == 'running' %}
-            <div class="text-center py-8">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                <p class="mt-4 text-lg text-gray-600">
-                    Scan is in progress...
-                </p>
-                <div id="live-findings-counter" class="mt-2 text-sm text-gray-500">
-                    Findings so far: 0
-                </div>
-            </div>
-
             {% else %}
-            <div class="text-center py-12">
-                <p class="text-gray-500">
-                    No findings yet. Scan a repository to see results.
+            <div class="text-center py-12" id="clean-scan">
+                <p class="text-gray-700">
+                    This scan detected no quantum-vulnerable cryptography.
+                </p>
+                <p class="mt-1 text-sm text-gray-600">
+                    Coverage is limited to the languages the scanner supports. Dependencies are not
+                    covered yet.
                 </p>
             </div>
             {% endif %}
         </div>
     </div>
 
-    {% elif scan.status == 'failed' %}
+    {% elif scan.status == ScanStatus.FAILED %}
     <!-- Error State -->
-    <div class="bg-red-50 border-l-4 border-red-500 p-6">
-        <h3 class="text-lg font-bold text-red-800 mb-2">
-            Scan Failed
-        </h3>
-        <p class="text-red-600">
+    <div class="bg-red-50 border-l-4 border-red-600 p-6">
+        <h2 class="text-lg font-bold text-red-800 mb-2">
+            Scan failed
+        </h2>
+        <p class="text-red-700">
             {{ scan.error_message or 'An unknown error occurred during scanning.' }}
         </p>
         <div class="mt-4">
@@ -270,37 +240,30 @@
         </div>
     </div>
 
-    {% elif scan.status == 'queued' or scan.status == 'running' %}
-    <!-- Loading State -->
-    <div class="text-center py-12">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mb-4"></div>
-        <p class="text-lg text-gray-600">
-            Scan is {{ scan.status }}...
+    {% else %}
+    <!-- Queued or running -->
+    <div class="text-center py-12" role="status">
+        <div class="motion-safe:animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mb-4 mx-auto" aria-hidden="true"></div>
+        <p class="text-lg text-gray-700">
+            Scan is {{ scan.status }}.
         </p>
-        {% if scan.status == 'running' %}
-        <div id="live-findings-counter" class="mt-2 text-sm text-gray-500">
-            Findings so far: 0
-        </div>
-        {% endif %}
+        <p class="mt-2 text-sm">
+            <a href="/dashboard/scans/{{ scan.id }}/live" class="text-indigo-700 underline">View progress</a>
+        </p>
     </div>
     {% endif %}
 </div>
 
 <script>
-    // Auto-refresh findings counter during live scans (in real implementation)
-    if ('{{ scan.status }}' === 'running') {
-        const counter = document.getElementById('live-findings-counter');
-        let count = 0;
-        const interval = setInterval(() => {
-            count += Math.floor(Math.random() * 3) + 1; // Simulate finding accumulation
-            counter.textContent = `Findings so far: ${count}`;
-
-            // In real app: this would come from SSE or polling API
-            if (count > 20) {
-                clearInterval(interval);
-                counter.textContent = `Scan completed - ${count} findings found`;
-            }
-        }, 2000);
-    }
+    // Disclosure rows (A43): toggle the details row and keep aria-expanded in sync.
+    // WP3 moves this into app/static/js/ for the CSP.
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-disclosure]');
+        if (!button) return;
+        const panel = document.getElementById(button.getAttribute('aria-controls'));
+        const open = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', String(!open));
+        panel.hidden = open;
+    });
 </script>
 {% endblock %}

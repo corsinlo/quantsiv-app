@@ -10,25 +10,27 @@
     <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
+    <a href="#main-content"
+       class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded-md focus:shadow underline">
+        Skip to main content
+    </a>
     <div class="min-h-screen flex flex-col">
         <!-- Header -->
         <header class="bg-white shadow-sm">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
-                        <span class="text-xl font-bold text-indigo-600"><img src="/static/logo-symbol.png" alt="Quantsiv Logo" class="h-8 w-auto"></span>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <!-- User info would go here in real implementation -->
-                        <span class="text-sm text-gray-500">Welcome, Developer</span>
+                        <a href="/dashboard" class="inline-flex items-center">
+                            <img src="/static/logo-symbol.png" alt="Quantsiv home" class="h-8 w-auto">
+                        </a>
                     </div>
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main id="main-content" class="flex-1">
-            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main id="main-content" class="flex-1" tabindex="-1">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 {% block content %}{% endblock %}
             </div>
         </main>
@@ -36,8 +38,8 @@
         <!-- Footer -->
         <footer class="bg-white border-t">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <p class="text-sm text-gray-500">
-                    Quantsiv - Quantum Risk Management Platform &copy; 2026
+                <p class="text-sm text-gray-600">
+                    Quantsiv - pre-launch preview
                 </p>
             </div>
         </footer>
