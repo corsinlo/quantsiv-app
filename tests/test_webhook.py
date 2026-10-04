@@ -11,22 +11,10 @@ from app import worker
 from app.main import app
 from app.queue import get_queue
 from app.routers import webhooks
+from tests.fakes import FakeQueue
 
 client = TestClient(app)
 BODY = json.dumps({"zen": "hello"}).encode()
-
-
-class FakeQueue:
-    """Mimics ArqRedis.enqueue_job: a job id that already exists is refused (returns None)."""
-
-    def __init__(self):
-        self.jobs: dict[str, tuple] = {}
-
-    async def enqueue_job(self, function, *args, _job_id=None, **kwargs):
-        if _job_id in self.jobs:
-            return None
-        self.jobs[_job_id] = (function, args, kwargs)
-        return object()
 
 
 @pytest.fixture

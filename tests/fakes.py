@@ -66,11 +66,28 @@ class FakeScanStore:
 
 
 class FakeRepoAccess:
-    def __init__(self, allowed: set[str]):
+    def __init__(self, allowed: set[str], installation_id: int = 7):
         self.allowed = allowed
+        self.installation_id = installation_id
 
-    async def can_scan(self, user_id: int, repo_full_name: str) -> bool:
-        return repo_full_name in self.allowed
+    async def installation_for(self, user_id: int, repo_full_name: str) -> int | None:
+        return self.installation_id if repo_full_name in self.allowed else None
+
+
+class FakeQueue:
+    """Mimics ArqRedis.enqueue_job: a job id that already exists is refused (returns None)."""
+
+    def __init__(self):
+        self.jobs: dict[str, tuple] = {}
+
+    async def enqueue_job(self, function, *args, _job_id=None, **kwargs):
+        import uuid
+
+        _job_id = _job_id or uuid.uuid4().hex
+        if _job_id in self.jobs:
+            return None
+        self.jobs[_job_id] = (function, args, kwargs)
+        return object()
 
 
 class FakeOAuth:

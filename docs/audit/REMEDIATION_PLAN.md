@@ -24,8 +24,8 @@ that changes.
 | WP1 | Build, boot, smoke tests, CI | done | #2 | CI green (test, docker web, docker worker). Docker can't build in the cloud VM (Debian mirrors blocked); rely on CI |
 | WP2 | Honest, accessible UI | done | #3 | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
 | WP3 | Security foundation | done | #4 | Share links wait for WP4 (`share_links` table) |
-| WP4 | Data layer and worker | review | | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
-| WP5 | Scan pipeline safety | todo | | Engine part blocked by D2 |
+| WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
+| WP5 | Scan pipeline safety | review | | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
 | WP6 | CBOM and HNDL scoring | todo | | |
 | WP7 | Local runner and CBOM ingest | todo | | D1 confirmed 2026-10-04 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
@@ -252,16 +252,20 @@ tests/
 - No `print(` remains in `app/`.
 
 ## WP5 - Scan pipeline safety (A15-A17, A27, A52)
-- [ ] `services/clone.py`: the secure clone from audit section 7 (token passed via `GIT_CONFIG_*`
+- [x] `services/clone.py`: the secure clone from audit section 7 (token passed via `GIT_CONFIG_*`
       env, the listed flags, a fixed user-facing error), plus a repo-size pre-check and deleting
       `.git` before scanning (A15, A16).
-- [ ] `services/github.py`: down-scoped installation tokens, revoked in `finally` (A52).
-- [ ] `services/ssrf.py`: `resolve_scan_target` with the internal-suffix block-list. TLS scans
+- [x] `services/github.py`: down-scoped installation tokens, revoked in `finally` (A52).
+- [x] `services/ssrf.py`: `resolve_scan_target` with the internal-suffix block-list. TLS scans
       only for DNS-TXT-verified domains; at most one handshake for unverified ones (A17).
-- [ ] Sandbox: the scanner runs as a separate process with a timeout and memory limit. Document
+      (The guard is built and tested. TLS scanning itself and domain verification are not
+      built yet; the rule is recorded in `docs/hosted-scanning.md`.)
+- [x] Sandbox: the scanner runs as a separate process with a timeout and memory limit. Document
       that hosted scanning of private repos stays off until it can run with no network (A16).
+      (`services/sandbox.py`; `docs/hosted-scanning.md`. The pipeline refuses private repos.)
 - [ ] **BLOCKED by D2:** integrate the chosen engine. Until then, the "scan" step is clearly
-      labelled as a stub in the UI and logs.
+      labelled as a stub in the UI and logs. (Done for the label: scans fail with "The scan
+      engine is not available yet.")
 
 **Acceptance:**
 - `tests/test_clone.py` passes: mock `create_subprocess_exec` and assert the token appears in no

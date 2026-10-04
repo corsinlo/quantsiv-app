@@ -3,8 +3,9 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.main import app, create_app
+from app.queue import get_queue
 from app.scans import get_repo_access, get_scan_store
-from tests.fakes import SCANS, FakeRepoAccess, FakeScanStore
+from tests.fakes import SCANS, FakeQueue, FakeRepoAccess, FakeScanStore
 from tests.helpers import csrf, sign_in
 
 
@@ -70,47 +71,44 @@ def test_api_returns_the_stored_scan(client):
 
 
 @pytest.fixture
-def repo_access():
+def queue():
+    fake = FakeQueue()
+    app.dependency_overrides[get_queue] = lambda: fake
     app.dependency_overrides[get_repo_access] = lambda: FakeRepoAccess({"test-org/allowed"})
-    yield
+    yield fake
+    app.dependency_overrides.pop(get_queue, None)
     app.dependency_overrides.pop(get_repo_access, None)
 
 
-@pytest.mark.usefixtures("repo_access")
-def test_manual_scan_of_an_installation_repo_is_not_implemented_yet(client):
+def test_manual_scan_of_an_installation_repo_is_queued(client, queue):
     response = client.post(
         "/api/scans",
         json={"repo_full_name": "test-org/allowed"},
         headers={"X-CSRF-Token": csrf(client)},
     )
-    assert response.status_code == 501
+    assert response.status_code == 202
+    assert list(queue.jobs.values()) == [
+        ("scan_repository", (7, "test-org/allowed"), {"triggered_by": "manual"})
+    ]
 
 
-@pytest.mark.usefixtures("repo_access")
-def test_manual_scan_of_a_repo_outside_the_installations_is_404(client):
+def test_manual_scan_of_a_repo_outside_the_installations_is_404(client, queue):
     response = client.post(
         "/api/scans",
         json={"repo_full_name": "someone/else"},
         headers={"X-CSRF-Token": csrf(client)},
     )
     assert response.status_code == 404
+    assert queue.jobs == {}
 
 
 @pytest.mark.parametrize("name", ["no-slash", "a/b/c", "o/r;rm -rf", "-" * 40 + "/r"])
-def test_manual_scan_rejects_invalid_repo_names(client, name):
+def test_manual_scan_rejects_invalid_repo_names(client, queue, name):
     response = client.post(
         "/api/scans", json={"repo_full_name": name}, headers={"X-CSRF-Token": csrf(client)}
     )
     assert response.status_code == 422
-
-
-def test_without_installation_lookup_manual_scans_are_501(client):
-    response = client.post(
-        "/api/scans",
-        json={"repo_full_name": "test-org/repo"},
-        headers={"X-CSRF-Token": csrf(client)},
-    )
-    assert response.status_code == 501
+    assert queue.jobs == {}
 
 
 def test_static_logo_is_served():
@@ -131,3 +129,38 @@ def test_docs_are_disabled_in_production(monkeypatch):
 
 def test_docs_are_served_in_development():
     assert TestClient(app).get("/openapi.json").status_code == 200
+
+
+def test_dashboard_scan_form_queues_and_flashes(client, queue):
+    response = client.post(
+        "/dashboard/scans",
+        data={"repo_full_name": "test-org/allowed", "csrf_token": csrf(client)},
+        follow_redirects=False,
+    )
+    assert (response.status_code, response.headers["location"]) == (303, "/dashboard")
+    assert list(queue.jobs.values()) == [
+        ("scan_repository", (7, "test-org/allowed"), {"triggered_by": "manual"})
+    ]
+    assert "Scan of test-org/allowed queued" in client.get("/dashboard").text
+    assert 'id="flash"' not in client.get("/dashboard").text  # shown once
+
+
+@pytest.mark.parametrize(
+    "repo,message",
+    [
+        ("nope", "Enter a repository as owner/name"),
+        ("someone/else", "someone/else is not in a GitHub installation you own."),
+    ],
+)
+def test_dashboard_scan_form_errors(client, queue, repo, message):
+    token = csrf(client)
+    response = client.post("/dashboard/scans", data={"repo_full_name": repo, "csrf_token": token})
+    assert response.status_code == 200  # followed the redirect to the dashboard
+    assert message in response.text
+    assert queue.jobs == {}
+
+
+def test_dashboard_scan_form_needs_csrf(client, queue):
+    response = client.post("/dashboard/scans", data={"repo_full_name": "test-org/allowed"})
+    assert response.status_code == 403
+    assert queue.jobs == {}

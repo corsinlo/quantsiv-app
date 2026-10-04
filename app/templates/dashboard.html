@@ -22,16 +22,35 @@
                 Quantum-vulnerable cryptography found in your scanned repositories
             </p>
         </div>
-        <div class="flex items-center space-x-4">
-            <button
-                type="button"
-                disabled aria-disabled="true" title="Coming soon"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
-            >
-                Scan a Repository (coming soon)
+    </div>
+
+    {% if flash %}
+    <div role="status" id="flash"
+         class="rounded-md p-4 {% if flash[0] == 'error' %}bg-red-50 text-red-800{% else %}bg-green-50 text-green-800{% endif %}">
+        {{ flash[1] }}
+    </div>
+    {% endif %}
+
+    <!-- Manual scan (public repositories in your installations; D1) -->
+    <form method="post" action="/dashboard/scans" class="bg-white rounded-lg shadow p-4 space-y-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <label for="repo_full_name" class="block text-sm font-medium text-gray-800">
+            Scan a public repository
+        </label>
+        <div class="flex flex-col sm:flex-row gap-2">
+            <input id="repo_full_name" name="repo_full_name" type="text" required
+                   placeholder="owner/name" autocomplete="off" spellcheck="false"
+                   aria-describedby="repo-help"
+                   pattern="[A-Za-z0-9\-]{1,39}/[A-Za-z0-9._\-]{1,100}"
+                   class="flex-1 rounded-md border border-gray-400 px-3 py-2 text-sm">
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                Scan
             </button>
         </div>
-    </div>
+        <p id="repo-help" class="text-sm text-gray-600">
+            The repository must be public and covered by a Quantsiv GitHub App installation you own.
+        </p>
+    </form>
 
     <!-- Stats Overview: computed from the scans below, never invented (A29) -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
