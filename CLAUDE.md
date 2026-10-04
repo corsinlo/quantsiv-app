@@ -9,15 +9,17 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0 (hygiene) and WP1 (build, boot, smoke tests, CI) have landed (PR #2), and CI runs on every
-push. D1 and D7 are confirmed. The app **boots but does nothing real yet**:
+WP0-WP2 have landed (PRs #2, #3) and WP3 (security foundation) is in review. D1 and D7 are
+confirmed. The app **boots, signs users in with GitHub, and stores nothing yet**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages. Since WP2 they show no
   invented data: empty states, and 404/501 from routes and API stubs that have no data yet.
   Routes read scans through `app/scans.py` (`ScanStore`), which WP4 backs with the database;
 - `pytest -m a11y` runs the axe-core WCAG check (Playwright Chromium; in this cloud VM set
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Plain `pytest` skips it;
 - `python -m arq app.worker.WorkerSettings` starts, with no-op jobs (WP4 implements them);
-- there are no real models, no authentication (WP3) and no scan engine (D2);
+- sign-in is GitHub OAuth with a signed session cookie (`app/auth.py`); every page needs it, and
+  every POST needs the CSRF token. The webhook verifies and queues, and the worker filters events;
+- there are no real models (WP4) and no scan engine (D2);
 - the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks
   `deb.debian.org`).
 
@@ -56,6 +58,9 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
 - Use `.venv/bin/python -m pytest`, or `source .venv/bin/activate`.
 - Docker may be unavailable in the cloud VM, and its default network policy blocks the Debian
   mirrors the Dockerfile's `apt-get` needs. Rely on the CI `docker` job.
+- Front-end assets are self-hosted and committed: after changing templates, `app/static/js/` or
+  Tailwind, run `npm ci && npm run build` and commit `app/static/`. CI fails if they drift. No
+  inline scripts or styles: the CSP forbids them.
 - Dependencies: edit the `requirements*.in` files, then re-lock with the `uv pip compile` command
   in each file's header (hashes, Python 3.12). Never hand-edit the `.txt` locks.
 

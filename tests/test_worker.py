@@ -9,5 +9,5 @@ def test_worker_settings_register_the_jobs():
 async def test_placeholder_jobs_run():
     ctx: dict = {}
     assert await worker.scan_repository(ctx, 1, "o/r") is None
-    assert await worker.handle_github_event(ctx, "ping", {}) is None
+    assert await worker.handle_github_event(ctx, "ping", {}) == "ignored-ping"
     assert await worker.delete_account(ctx, 1) is None

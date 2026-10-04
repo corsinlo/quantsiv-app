@@ -1,9 +1,8 @@
 """axe-core WCAG 2.1 A/AA check on the rendered pages (WP2 acceptance).
 
 Run with `pytest -m a11y`. Needs a Playwright Chromium: `python -m playwright install chromium`,
-or set PLAYWRIGHT_CHROMIUM_EXECUTABLE to an existing binary. Pages load Tailwind from its CDN
-until WP3 self-hosts it, so the colour-contrast results are only meaningful where that CDN is
-reachable (CI).
+or set PLAYWRIGHT_CHROMIUM_EXECUTABLE to an existing binary. The assets are self-hosted (WP3),
+so the check needs no network and also fails on any CSP violation.
 """
 
 import os
@@ -16,7 +15,8 @@ import uvicorn
 
 from app.main import app
 from app.scans import get_scan_store
-from tests.fakes import SCANS, FakeScanStore
+from app.services.github_oauth import get_github_oauth
+from tests.fakes import SCANS, FakeOAuth, FakeScanStore
 
 pytestmark = pytest.mark.a11y
 
@@ -45,13 +45,31 @@ def base_url():
     thread.join(timeout=5)
 
 
+def _session_cookie(base_url: str) -> dict:
+    """Sign in through the real OAuth routes with a fake GitHub, and return the cookie."""
+    import httpx
+
+    app.dependency_overrides[get_github_oauth] = FakeOAuth
+    try:
+        with httpx.Client(base_url=base_url) as http:
+            login = http.get("/auth/github/login")
+            state = httpx.URL(login.headers["location"]).params["state"]
+            http.get("/auth/github/callback", params={"code": "c", "state": state})
+            value = http.cookies["quantsiv_session"]
+    finally:
+        app.dependency_overrides.pop(get_github_oauth, None)
+    return {"name": "quantsiv_session", "value": value, "url": base_url}
+
+
 @pytest.fixture(scope="module")
-def page():
+def page(base_url):
     sync_api = pytest.importorskip("playwright.sync_api")
     executable = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE") or None
     with sync_api.sync_playwright() as p:
         browser = p.chromium.launch(executable_path=executable)
-        yield browser.new_page()
+        context = browser.new_context()
+        context.add_cookies([_session_cookie(base_url)])
+        yield context.new_page()
         browser.close()
 
 
@@ -80,6 +98,9 @@ def _open(page, url: str) -> None:
         page.goto(url, wait_until="networkidle", timeout=15000)
     except PlaywrightTimeoutError:  # a CDN that hangs: check the page as rendered
         page.wait_for_load_state("load")
+    # Guard against checking a sign-in redirect or error page instead of the real one
+    assert page.url == url, f"expected {url}, got {page.url}"
+    assert page.title().endswith("- Quantsiv")
 
 
 PAGES = [(False, "/dashboard"), (True, "/dashboard")] + [
@@ -93,8 +114,14 @@ PAGES = [(False, "/dashboard"), (True, "/dashboard")] + [
     "store,path", PAGES, indirect=["store"], ids=[f"{p}{'' if d else '-empty'}" for d, p in PAGES]
 )
 def test_page_has_no_wcag_violations(store, path, page, base_url):
+    csp_errors = []
+    page.on(
+        "console",
+        lambda msg: "Content Security Policy" in msg.text and csp_errors.append(msg.text),
+    )
     _open(page, base_url + path)
     assert _violations(page) == []
+    assert csp_errors == [], "the CSP blocked something on this page (A20)"
 
 
 @pytest.mark.parametrize("store", [True], indirect=True)

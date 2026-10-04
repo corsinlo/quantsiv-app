@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block scripts %}<script src="/static/js/scan-live.js" defer></script>{% endblock %}
+
 {% block content %}
 <div class="space-y-6" data-scan-id="{{ scan_id }}">
     <!-- Scan Header -->
@@ -29,7 +31,7 @@
                     <div class="w-full bg-gray-200 rounded-full h-2.5" id="progress"
                          role="progressbar" aria-labelledby="progress-label"
                          aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                        <div id="progress-bar" class="h-2.5 bg-indigo-600 rounded-full transition-width" style="width: 0%"></div>
+                        <div id="progress-bar" class="h-2.5 w-0 bg-indigo-600 rounded-full transition-all"></div>
                     </div>
                 </div>
 
@@ -116,45 +118,4 @@
         </button>
     </div>
 </div>
-
-<script>
-// Live scan progress over Server-Sent Events. The /api/scans/{id}/events endpoint arrives with
-// WP4; WP3 moves this script into app/static/js/ for the CSP.
-const scanId = document.querySelector('[data-scan-id]').dataset.scanId;
-const eventSource = new EventSource(`/api/scans/${scanId}/events`);
-
-eventSource.onmessage = function (event) {
-    updateScanProgress(JSON.parse(event.data));
-};
-
-eventSource.onerror = function () {
-    document.getElementById('current-step').textContent =
-        'Live progress is unavailable. Reload the page to check the scan status.';
-    eventSource.close();
-};
-
-function updateScanProgress(data) {
-    const progressPercent = data.progress || 0;
-    document.getElementById('progress-percent').textContent = progressPercent + '%';
-    document.getElementById('progress').setAttribute('aria-valuenow', String(progressPercent));
-    document.getElementById('progress-bar').style.width = progressPercent + '%';
-
-    (data.steps || []).forEach((step, index) => {
-        const statusEl = document.getElementById(`step-${index + 1}-status`);
-        if (statusEl) {
-            statusEl.textContent = step.status || 'Pending';
-        }
-    });
-
-    const findingsCount = data.findings_count || 0;
-    document.getElementById('findings-counter').textContent = `${findingsCount} findings`;
-    document.getElementById('current-step').textContent = data.current_step || 'Processing...';
-
-    // Statuses are the ScanStatus values: queued, running, done, failed (A32)
-    if (data.status === 'done' || data.status === 'failed') {
-        eventSource.close();
-        window.location.href = `/dashboard/scans/${scanId}`;
-    }
-}
-</script>
 {% endblock %}

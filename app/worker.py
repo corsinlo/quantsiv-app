@@ -13,10 +13,11 @@ from typing import ClassVar
 
 from arq.connections import RedisSettings
 
-from app.config import get_settings
+from app.config import configure_logging, get_settings
 from app.models import ScanStatus
 
 logger = logging.getLogger(__name__)
+configure_logging()
 
 # In a real implementation, these would import actual libraries
 # For MVP structure, we're defining the worker logic
@@ -108,7 +109,7 @@ class ScanWorker:
         """Create a new scan record and return the scan ID"""
         # In real implementation: INSERT INTO scans ... RETURNING id
         # For MVP structure, we'll return a placeholder
-        print(f"Creating scan record for {repo_full_name}")
+        logger.debug("creating scan record for %s", repo_full_name)
         return 1  # Placeholder
 
     async def _get_github_access_token(self, installation_id: int) -> str:
@@ -117,7 +118,7 @@ class ScanWorker:
         # 1. Sign JWT with GitHub App private key
         # 2. POST to https://api.github.com/app/installations/{id}/access_tokens
         # 3. Return token
-        print(f"Getting GitHub access token for installation {installation_id}")
+        logger.info("getting an access token for installation %s", installation_id)
         return "gho_placeholder_token"  # Placeholder
 
     async def _clone_repository(
@@ -126,7 +127,7 @@ class ScanWorker:
         """Clone repository using gitpython or subprocess"""
         # In real implementation:
         # git clone https://x-access-token:{token}@github.com/{repo}.git {repo_path}
-        print(f"Cloning {repo_full_name} to {repo_path}")
+        logger.debug("cloning %s to %s", repo_full_name, repo_path)
         # Placeholder - would actually clone
         os.makedirs(repo_path, exist_ok=True)
         # Create a sample file for testing
@@ -144,7 +145,7 @@ key = RSA.generate(2048)  # This should be detected as quantum-vulnerable
         # TODO: Actually call cbomkit-lib via subprocess and parse output
         # java -jar /app/bin/cbomkit-lib.jar scan --input {repo_path} --output /tmp/scan/cbom.json --format cyclonedx-json
         # Parse the CycloneDX JSON output
-        print(f"Scanning source code in {repo_path}")
+        logger.debug("scanning source code in %s", repo_path)
 
         # Placeholder findings for MVP
         return [
@@ -166,7 +167,7 @@ key = RSA.generate(2048)  # This should be detected as quantum-vulnerable
         """Scan config files for hostnames/domains to check for TLS"""
         # In real implementation:
         # Scan for hostnames in .env, config.yaml, application.properties, .env.example
-        print(f"Detecting domains from config files in {repo_path}")
+        logger.debug("detecting domains from config files in %s", repo_path)
         return ["example.com"]  # Placeholder
 
     async def _scan_tls_domains(self, domains: list[str]) -> list[dict]:
@@ -174,7 +175,7 @@ key = RSA.generate(2048)  # This should be detected as quantum-vulnerable
         # In real implementation:
         # Use sslyze Scanner to scan each domain
         # Extract: cert algorithm, key bits, cipher suites, TLS version, expiry
-        print(f"Scanning TLS domains: {domains}")
+        logger.debug("scanning TLS domains: %s", domains)
 
         # Placeholder TLS results
         return [
@@ -235,7 +236,7 @@ key = RSA.generate(2048)  # This should be detected as quantum-vulnerable
     ) -> str:
         """Generate CycloneDX 1.6 CBOM JSON"""
         # In real implementation: use cyclonedx-python-lib to assemble CBOM
-        print("Generating CBOM")
+        logger.info("generating CBOM")
 
         # Placeholder CBOM
         cbom = {
@@ -292,19 +293,23 @@ key = RSA.generate(2048)  # This should be detected as quantum-vulnerable
         """Save scan results to database"""
         # In real implementation:
         # INSERT INTO findings, cbom_snapshots, tls_scans
-        print(f"Saving scan results for scan {scan_id}")
-        print(f"  Findings: {len(findings)}")
-        print(f"  Risk score: {risk_score}")
-        print(f"  TLS results: {len(tls_results)}")
+        logger.info(
+            "saving scan %s: %d findings, risk score %s, %d TLS results",
+            scan_id,
+            len(findings),
+            risk_score,
+            len(tls_results),
+        )
 
     async def _update_scan_status(
         self, scan_id: int, status: ScanStatus, error_message: str | None = None
     ) -> None:
         """Update scan status in database"""
         # In real implementation: UPDATE scans SET status=?, error_message=?, completed_at=?
-        print(f"Updating scan {scan_id} status to {status}")
+        logger.info("scan %s is now %s", scan_id, status)
         if error_message:
-            print(f"  Error: {error_message}")
+            # may contain repo details: keep it out of INFO (A25)
+            logger.debug("scan %s error: %s", scan_id, error_message)
 
 
 # ARQ jobs (A50). Placeholders until WP4 wires them to ScanWorker and the database: they
@@ -315,8 +320,35 @@ async def scan_repository(
     logger.info("scan_repository: not implemented until WP4")
 
 
-async def handle_github_event(ctx: dict, event: str, payload: dict) -> None:
-    logger.info("handle_github_event: not implemented until WP3/WP4")
+async def handle_github_event(ctx: dict, event: str, payload: dict) -> str:
+    """Process a verified GitHub webhook (A12, A13). Returns what was done, for the job result.
+
+    Storing installations needs the data layer (WP4); until then installation events are logged
+    by ID only (no account names at INFO, A25).
+    """
+    action = payload.get("action")
+    if event == "installation":
+        installation = payload.get("installation") or {}
+        account = installation.get("account") or {}  # not payload["account"] (A12)
+        logger.info("installation %s: %s", action, installation.get("id"))
+        logger.debug("installation account %s (%s)", account.get("login"), account.get("type"))
+        return f"installation-{action}"
+    if event == "push":
+        repo = payload.get("repository") or {}
+        if payload.get("deleted"):
+            return "ignored-deleted-branch"
+        if not repo.get("default_branch") or payload.get("ref") != (
+            f"refs/heads/{repo['default_branch']}"
+        ):
+            return "ignored-non-default-ref"  # tags, other and nested branches (A13)
+        await ctx["redis"].enqueue_job(
+            "scan_repository",
+            payload["installation"]["id"],
+            repo["full_name"],
+            triggered_by="push",
+        )
+        return "scan-queued"
+    return f"ignored-{event}"
 
 
 async def delete_account(ctx: dict, user_id: int) -> None:
