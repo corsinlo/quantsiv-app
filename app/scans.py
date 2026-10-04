@@ -1,15 +1,35 @@
 """Where the routes read scans from, always scoped to the signed-in user (A14).
 
-There is no database until WP4, so the default store is empty and the pages show their empty
-states instead of invented data (A29). WP4 replaces `get_scan_store` with a database-backed
-store whose queries join through the user's installations (audit section 7, "Authorisation").
-A scan that exists but belongs to someone else must look exactly like a missing one: `None`.
+`user_id` is the signed-in user's GitHub user id (the session's `SessionUser.id`). Every query
+joins scans through installations to that user (audit section 7, "Authorisation"): a scan that
+exists but belongs to someone else looks exactly like a missing one, `None`.
 Tests override these dependencies with `app.dependency_overrides`.
 """
 
-from typing import Protocol
+from typing import Annotated, Protocol
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.db import get_db
+from app.models import Finding, Installation, Scan, User
+
+FINDING_FIELDS = (
+    "id",
+    "file_path",
+    "line_number",
+    "algorithm",
+    "algorithm_family",
+    "primitive",
+    "key_size",
+    "quantum_safe",
+    "severity",
+    "confidence",
+    "context_label",
+    "raw_match",
+)
 
 
 class ScanStore(Protocol):
@@ -18,16 +38,49 @@ class ScanStore(Protocol):
     async def get(self, scan_id: int, user_id: int) -> dict | None: ...
 
 
-class EmptyScanStore:
+def finding_to_dict(finding: Finding) -> dict:
+    return {field: getattr(finding, field) for field in FINDING_FIELDS}
+
+
+def scan_to_dict(scan: Scan) -> dict:
+    return {
+        "id": scan.id,
+        "repo_full_name": scan.repo_full_name,
+        "scan_type": scan.scan_type,
+        "status": scan.status,
+        "triggered_by": scan.triggered_by,
+        "risk_score": scan.cbom.risk_score if scan.cbom else None,
+        "error_message": scan.error_message,
+        "created_at": scan.created_at,
+        "completed_at": scan.completed_at,
+        "findings": [finding_to_dict(f) for f in scan.findings],
+    }
+
+
+class DbScanStore:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    def _scoped(self, user_id: int):
+        return (
+            select(Scan)
+            .join(Installation, Scan.installation_id == Installation.id)
+            .join(User, Installation.user_id == User.id)
+            .where(User.github_user_id == user_id)
+            .options(selectinload(Scan.findings), selectinload(Scan.cbom))
+        )
+
     async def list_recent(self, user_id: int, limit: int = 20) -> list[dict]:
-        return []
+        query = self._scoped(user_id).order_by(Scan.created_at.desc(), Scan.id.desc())
+        return [scan_to_dict(s) for s in await self.db.scalars(query.limit(limit))]
 
     async def get(self, scan_id: int, user_id: int) -> dict | None:
-        return None
+        scan = await self.db.scalar(self._scoped(user_id).where(Scan.id == scan_id))
+        return scan_to_dict(scan) if scan else None
 
 
-def get_scan_store() -> ScanStore:
-    return EmptyScanStore()
+def get_scan_store(db: Annotated[AsyncSession, Depends(get_db)]) -> ScanStore:
+    return DbScanStore(db)
 
 
 class RepoAccess(Protocol):

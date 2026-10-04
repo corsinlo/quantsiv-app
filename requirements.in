@@ -22,3 +22,6 @@ cryptography>=50
 itsdangerous
 # GitHub OAuth calls
 httpx
+# Async database drivers: Postgres in deployment, SQLite for local tests (A51)
+asyncpg
+aiosqlite

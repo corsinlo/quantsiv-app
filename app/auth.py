@@ -2,9 +2,9 @@
 
 Sessions use Starlette's SessionMiddleware: a signed, HttpOnly, SameSite=Lax cookie (Secure in
 production) that holds only the GitHub user id and login, the CSRF token and the OAuth state.
-It is chosen over an opaque ID plus a sessions table because there is no database until WP4.
-Revocation is by expiry (8 hours) or by rotating SESSION_SECRET; WP4 can switch to a sessions
-table if per-session revocation is needed.
+It was chosen in WP3, before the database existed, over an opaque ID plus a sessions table.
+Revocation is by expiry (8 hours) or by rotating SESSION_SECRET; switch to a sessions table if
+per-session revocation becomes necessary. Sign-in upserts the `users` row.
 """
 
 import hmac
@@ -15,8 +15,11 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.db import get_db
+from app.models import upsert_user
 from app.services.github_oauth import AUTHORIZE_URL, GitHubIdentity, OAuthError, get_github_oauth
 
 SESSION_MAX_AGE = 8 * 60 * 60
@@ -118,6 +121,7 @@ async def github_login(request: Request, next: str | None = None):
 async def github_callback(
     request: Request,
     oauth: Annotated[GitHubIdentity, Depends(get_github_oauth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     code: str = "",
     state: str = "",
 ):
@@ -128,6 +132,8 @@ async def github_callback(
         user = await oauth.identify(code, str(request.url_for("github_callback")))
     except OAuthError as exc:
         raise HTTPException(502, str(exc)) from None
+    await upsert_user(db, user["id"], user["login"])
+    await db.commit()
     next_path = _safe_next(request.session.get("next"))
     request.session.clear()  # new session on sign-in: no fixation
     request.session["user"] = user

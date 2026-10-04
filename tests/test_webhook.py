@@ -113,9 +113,24 @@ def push(ref: str, **extra) -> dict:
     }
 
 
-async def test_installation_account_is_read_from_installation():
-    payload = {"action": "created", "installation": {"id": 7, "account": {"login": "acme"}}}
-    assert await worker.handle_github_event({}, "installation", payload) == "installation-created"
+async def test_installation_account_is_read_from_installation(worker_ctx):
+    from sqlalchemy import select
+
+    from app.models import Installation
+
+    payload = {
+        "action": "created",
+        "installation": {"id": 7001, "account": {"login": "acme", "type": "Organization"}},
+        "sender": {"id": 9001, "login": "acme-admin"},
+    }
+    assert await worker.handle_github_event(worker_ctx, "installation", payload) == (
+        "installation-created"
+    )
+    async with worker_ctx["sessionmaker"]() as db:
+        row = await db.scalar(
+            select(Installation).where(Installation.github_installation_id == 7001)
+        )
+        assert (row.account_name, row.account_type) == ("acme", "Organization")
 
 
 async def test_push_to_default_branch_queues_a_scan():
@@ -143,10 +158,10 @@ async def test_branch_deletion_is_ignored():
 
 async def test_info_logs_carry_no_account_names(caplog):
     caplog.set_level("INFO", logger="app")
-    payload = {"action": "created", "installation": {"id": 7, "account": {"login": "acme-corp"}}}
+    payload = {"action": "suspend", "installation": {"id": 7002, "account": {"login": "acme-corp"}}}
     await worker.handle_github_event({}, "installation", payload)
     assert "acme-corp" not in caplog.text
-    assert "7" in caplog.text
+    assert "7002" in caplog.text
 
 
 def test_no_print_calls_in_app():

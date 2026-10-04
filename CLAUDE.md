@@ -9,17 +9,21 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP2 have landed (PRs #2, #3) and WP3 (security foundation) is in review. D1 and D7 are
-confirmed. The app **boots, signs users in with GitHub, and stores nothing yet**:
-- `uvicorn app.main:app` serves `/health` and the dashboard pages. Since WP2 they show no
-  invented data: empty states, and 404/501 from routes and API stubs that have no data yet.
-  Routes read scans through `app/scans.py` (`ScanStore`), which WP4 backs with the database;
+WP0-WP3 have landed (PRs #2-#4) and WP4 (data layer and worker) is in review. D1 and D7 are
+confirmed. The app **signs users in with GitHub and stores installations and scans, but cannot
+scan yet**:
+- `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
+  (empty states otherwise). Routes read scans through `app/scans.py` (`DbScanStore`), scoped in
+  SQL to the signed-in user's installations;
+- the database is SQLAlchemy 2.0 async with Alembic migrations (`migrations/`): Postgres in
+  deployment, SQLite in local tests. Run `alembic upgrade head` after pulling;
+- every scan fails with a clear "not available yet" message until repository access and the
+  hardened clone (WP5) and the engine (D2) exist. Never let a stub produce findings;
 - `pytest -m a11y` runs the axe-core WCAG check (Playwright Chromium; in this cloud VM set
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Plain `pytest` skips it;
-- `python -m arq app.worker.WorkerSettings` starts, with no-op jobs (WP4 implements them);
 - sign-in is GitHub OAuth with a signed session cookie (`app/auth.py`); every page needs it, and
   every POST needs the CSRF token. The webhook verifies and queues, and the worker filters events;
-- there are no real models (WP4) and no scan engine (D2);
+- there is no scan engine yet (D2);
 - the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks
   `deb.debian.org`).
 
@@ -47,6 +51,7 @@ decisions D1-D9).
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env                       # then fill the values
+alembic upgrade head                       # needs DATABASE_URL
 uvicorn app.main:app --reload              # web
 python -m arq app.worker.WorkerSettings    # worker; needs REDIS_URL
 pytest
