@@ -27,7 +27,7 @@ that changes.
 | WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
 | WP5 | Scan pipeline safety | done | #6 | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
 | WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
-| WP7 | Local runner and CBOM ingest | review (ingest) / blocked (scanner, D2) | | Ingest, tokens, delta gate and export built; CLI and CI templates wait for D2 |
+| WP7 | Local runner and CBOM ingest | in progress | #9 (ingest) | Ingest, tokens, delta gate and export merged; scanner half unblocked by D2 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
 | WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed (D7 confirmed 2026-10-04). No LLM in this WP |
@@ -36,13 +36,20 @@ that changes.
 
 Confirmed decisions say so in their row; the rest are still open.
 
+**Market scope (founder, 2026-10-04): Quantsiv will operate in both the US and the EU markets.**
+Consequences recorded here, none of them yet built: the control plane stays EU-hosted (D3), with a
+US-region option to be decided if a US customer requires data residency; the legal pages (WP8)
+must cover both GDPR and the applicable US state privacy laws, which is a question for counsel
+when D4 is answered; the narrative already cites US (EO 14412, OMB M-26-15, NIST) and EU (NIS
+Cooperation Group) authorities, and must keep both.
+
 | ID | Decision | Recommended default | Blocks |
 | --- | --- | --- | --- |
 | D1 | Delivery model | **Confirmed 2026-10-04.** Local-first scanner (CLI plus container) runs in the customer's CI, so code never leaves. Only the CBOM goes to an EU-hosted, metadata-only control plane (self-hosted later). Server-side cloning stays only for public repos and demos. See `quantsiv.md`, "Delivery model". Local-first is the default, not a permanent limit: hosted scanning of private repos may be offered later as an opt-in, once a network-less sandbox (A16) and the compliance work (security certification, DPA, EU processing) are funded. | WP7 (unblocked); shapes WP5 |
-| D2 | Scan engine | Ingest CBOMs from CBOMkit's published CI tooling run after the customer's build, plus your own rules for gaps (PyCryptodome, Go, JS/TS). Wrap `cbomkit-lib` (Java library, Java and Python only) in a pinned fat jar only if hosted scanning stays. | WP5 engine step |
+| D2 | Scan engine | **Confirmed 2026-10-04, as recommended, with the faster route:** no Java wrapping at all. (1) Quantsiv's own rules engine (`quantsiv_scanner`, pure Python, pattern-based) is the first engine; it covers the gaps named here (PyCryptodome, Go, JS/TS) and more, runs in the CLI and, through the sandbox, in the hosted worker. (2) CBOMkit comes in as *data*: the CI template runs CBOMkit-action (Apache-2.0, Java/Python/Go) before `quantsiv scan`, which merges its `cbom/cbom.json`, and the upload path already accepts any CycloneDX 1.6 CBOM. The original text: Ingest CBOMs from CBOMkit's published CI tooling run after the customer's build, plus your own rules for gaps (PyCryptodome, Go, JS/TS). Wrap `cbomkit-lib` (Java library, Java and Python only) in a pinned fat jar only if hosted scanning stays. | WP5 engine step (done), WP7 scanner half |
 | D3 | Hosting and region | Railway (or Render), EU region, Postgres (not a shared SQLite file, A51) | WP4 deploy |
-| D4 | Legal identity | Entity name, registered address, KvK and VAT numbers, privacy contact email | WP8 content, footer |
-| D5 | Packaging and pricing | To be validated with design partners. The proposals live in `quantsiv.md`, "Pricing". | WP8 pricing display; billing |
+| D4 | Legal identity | Entity name, registered address, KvK and VAT numbers, privacy contact email **Needed from the founder:** legal entity name and form; country of incorporation (the plan assumed a Dutch entity: confirm, since the US is also a target market); registered address; company registration number (KvK or equivalent) and VAT number; privacy contact email and whether a DPO is appointed; the hosting provider and region (for the privacy policy's recipients list); which e-mail and payment providers will be used. | WP8 content, footer |
+| D5 | Packaging and pricing | To be validated with design partners. The proposals live in `quantsiv.md`, "Pricing". **Needed from the founder:** the tier names and what each includes (repositories, seats, retention, support); the price per tier, its currency and billing period (monthly/annual); the free tier's limits and any trial; whether prices are shown ex- or including VAT, and for which countries; the refund and cancellation terms; the renewal terms. | WP8 pricing display; billing |
 | D6 | Competitive positioning | Complementary to posture platforms (QIZ Security, Wiz for PQC Readiness): export and ingest CycloneDX, build no runtime or cloud inventory before Phase 3, and never use the label "cryptographic posture management". See `quantsiv.md`, "Posture platforms". | Nothing blocked; shapes the WP7 interoperability scope and the copy |
 | D7 | Agent principles | **Confirmed 2026-10-04.** Agents propose, the pipeline verifies, a human approves. Deterministic tools decide every verdict; never auto-merge or auto-deploy. Agents are off by default per organisation, with a kill switch. The read-only policy MCP server ships free with the scanner; agents that use control-plane data go to design partners first. See `quantsiv.md`, "Agent layer". | WP10 (still needs WP7) |
 | D8 | Model hosting for LLM features | No LLM in Phase 1.0. Agents that touch code run in the customer's pipeline, on a model endpoint the customer chooses (bring your own model). Control-plane drafting (metadata only) uses an EU-region endpoint whose terms exclude training on customer data; choose the provider after reading its current terms. | Phase 1.1 lifetime assistant and evidence drafter; Phase 2 migration proposer |
