@@ -9,9 +9,8 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP7, WP9 and WP10 have landed (PRs #2-#11); WP8's buildable half (legal routes as
-placeholders, erasure) is in review, and its content waits for D4/D5. D1, D2 and D7 are
-confirmed. The app **signs users in with GitHub, stores installations,
+WP0-WP7, WP9 and WP10 have landed (PRs #2-#11), and WP8's buildable half (legal routes as
+placeholders, erasure) in #12; WP8's content waits for D4/D5. D1, D2 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
 scans public repositories with Quantsiv's own rules engine, takes CBOM uploads from any CI, and
 gates them on a per-repository policy**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
