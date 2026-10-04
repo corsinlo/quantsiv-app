@@ -24,6 +24,44 @@ python -m quantsiv_scanner scan [PATH] [--out DIR] [--repository owner/name]
 - `--json` prints the raw engine output and writes nothing. The hosted worker uses it.
 - Exit code 2 means a usage or input error; the message says which.
 
+## `quantsiv gate` and `quantsiv mcp` (WP10)
+
+```text
+python -m quantsiv_scanner gate --cbom quantsiv-out/cbom.json [--baseline previous.json]
+                                [--policy quantsiv.yml] [--out quantsiv-out/gate]
+python -m quantsiv_scanner mcp [--repo .] [--cbom quantsiv-out/cbom.json]
+                               [--audit quantsiv-out/mcp-audit.jsonl | --no-audit]
+                               [--allow-estate --api-url URL]
+```
+
+`gate` evaluates the delta between two CBOMs under the policy and writes `verdict.json`,
+`pr_comment.md`, `check_run.json` and `gate.sarif`; exit 1 means blocked. The upload endpoint and
+the MCP server's `check_change` run the same `policy.evaluate`, so all three agree.
+
+`mcp` serves four read-only tools over stdio to a coding assistant: `get_policy`,
+`check_change`, `get_cbom_summary` and `explain_finding`. No tool writes files, runs a shell or
+opens a connection; the single exception, `get_cbom_summary(scope="estate")`, is off unless the
+server is started with `--allow-estate` and `QUANTSIV_TOKEN` is set. Each call is appended to a
+local JSONL audit log (argument hashes, never repository text). The tool contract is a static
+snapshot (`tests/scanner/mcp_tools_snapshot.json`, `TOOLS_VERSION`).
+
+The `policy:` section of `quantsiv.yml`:
+
+```yaml
+policy:
+  block_new_quantum_vulnerable: true          # default: newly added vulnerable assets fail the gate
+  blocked_primitives: [key-agree, kem, pke, signature, unknown]
+  data_classes:
+    public: {blocked_primitives: [signature]} # per data class
+  allowed_algorithms: [Ed25519]               # never blocked, e.g. during a planned transition
+  exceptions:
+    - asset: RSA-2048                         # or just RSA
+      path: "legacy/*"                        # optional glob
+      approver: Jane Doe                      # required
+      expires: 2027-06-30                     # required; expired exceptions do not apply
+      reason: vendor SDK; replacement scheduled
+```
+
 ## How it ranks (`app/services/scoring.py`)
 
 A `quantsiv.yml` in the repository root declares data lifetimes:

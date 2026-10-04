@@ -3,3 +3,7 @@
 cyclonedx-python-lib[json-validation]==11.12.0
 pyyaml
 httpx
+# Gate explainer templates (WP10)
+jinja2==3.1.6
+# Read-only policy MCP server, `quantsiv mcp` (WP10, D7). Official SDK, pinned.
+mcp==2.3.0

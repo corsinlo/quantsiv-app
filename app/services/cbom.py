@@ -19,6 +19,7 @@ from cyclonedx.output.json import JsonV1Dot6
 LIFETIME_PROPERTY = "quantsiv:confidentiality-lifetime-years"
 TRACK_PROPERTY = "quantsiv:track"
 SOURCE_PROPERTY = "quantsiv:source"
+EXCEPTION_PROPERTY = "quantsiv:exception"
 
 PRIMITIVE = {
     "signature": CryptoPrimitive.SIGNATURE,
@@ -80,6 +81,14 @@ def build_cbom(
             properties.append(Property(name=LIFETIME_PROPERTY, value=str(f["lifetime_years"])))
         if f.get("source"):
             properties.append(Property(name=SOURCE_PROPERTY, value=str(f["source"])))
+        if f.get("exception"):
+            exc = f["exception"]
+            properties.append(
+                Property(
+                    name=EXCEPTION_PROPERTY,
+                    value=f"approver={exc.get('approver')};expires={exc.get('expires')}",
+                )
+            )
         bom.components.add(
             Component(
                 bom_ref=f"crypto-{i}",

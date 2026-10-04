@@ -1,0 +1,27 @@
+## {% if v.passed %}✅{% else %}❌{% endif %} Quantsiv cryptography gate: {{ "pass" if v.passed else "fail" }}
+
+{{ v.summary }}. Repository `{{ v.repository | cell }}`; policy version {{ v.policy_version }}.
+
+{% if v.added %}
+| New asset | Track | Declared lifetime | Severity | Why | Alternatives | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for e in v.added %}
+| `{{ e.algorithm | cell }}{% if e.key_size %}-{{ e.key_size }}{% endif %}`{% if e.file_path %} at `{{ e.file_path | cell }}{% if e.line_number %}:{{ e.line_number }}{% endif %}`{% endif %} | {{ e.track | cell }} | {% if e.lifetime_years is not none %}{{ e.lifetime_years }} years{% else %}not declared{% endif %} | {{ e.severity }} | {{ e.reason | cell }} | {{ e.alternatives | cell }} | {% if e.blocking %}**blocked**{% elif e.exception %}allowed under exception (approver {{ e.exception.approver | cell }}, expires {{ e.exception.expires }}){% elif e.quantum_vulnerable %}allowed by policy{% else %}not quantum-vulnerable{% endif %} |
+{% endfor %}
+
+{% for e in v.added if e.blocking %}
+{% if loop.first %}
+### Authority
+
+{% endif %}
+- `{{ e.algorithm | cell }}` ({{ e.track }}): {{ e.authority }}
+{% endfor %}
+{% else %}
+No cryptographic assets were added.
+{% endif %}
+{% if v.removed %}
+
+Removed: {{ v.removed | join(", ") }}.
+{% endif %}
+
+<sub>Harvest-now-decrypt-later applies to key establishment and encryption only; signatures are ranked against the signature deadline. The verdict is deterministic (no model involved). quantsiv-scanner {{ version }}.</sub>

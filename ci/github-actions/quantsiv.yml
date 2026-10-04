@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   security-events: write   # only for the SARIF upload to Code Scanning
+  pull-requests: write     # only to post the gate explanation as a PR comment
 jobs:
   cbom:
     runs-on: ubuntu-latest
@@ -40,6 +41,14 @@ jobs:
         with:
           name: quantsiv
           path: quantsiv-out/
+
+      # With a token, the control plane's gate verdict is explained in quantsiv-out/gate/.
+      # Post it on the pull request (needs `pull-requests: write` in `permissions` above).
+      - name: Post the gate explanation on the pull request
+        if: github.event_name == 'pull_request' && hashFiles('quantsiv-out/gate/pr_comment.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment "${{ github.event.pull_request.number }}" --body-file quantsiv-out/gate/pr_comment.md
 
       - name: Publish findings to GitHub Code Scanning
         if: always()
