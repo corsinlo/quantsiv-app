@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi.templating import Jinja2Templates
 
 from app.auth import csrf_token
+from app.config import get_settings
 from app.models import ScanStatus
 from app.services.scoring import HNDL_EXPOSED, PQC_GUIDANCE
 
@@ -23,6 +24,7 @@ def display_datetime(value: datetime | str | None) -> str:
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals.update(
+    legal_ready=lambda: get_settings().legal_ready,
     ScanStatus=ScanStatus,
     HNDL_EXPOSED=HNDL_EXPOSED,
     PQC_GUIDANCE=PQC_GUIDANCE,

@@ -58,6 +58,14 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <p class="text-sm text-gray-600">
                     Quantsiv - pre-launch preview
+                    {# The legal identity (entity, address, registration and VAT numbers) and the
+                       legal links go here once decision D4 is answered (A40). #}
+                    {% if legal_ready() %}
+                    · <a href="/legal/privacy" class="text-indigo-700 underline">Privacy</a>
+                    · <a href="/legal/terms" class="text-indigo-700 underline">Terms</a>
+                    · <a href="/legal/cookies" class="text-indigo-700 underline">Cookies</a>
+                    · <a href="/legal/notice" class="text-indigo-700 underline">Legal notice</a>
+                    {% endif %}
                 </p>
             </div>
         </footer>
