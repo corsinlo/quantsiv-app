@@ -25,6 +25,9 @@ FINDING_FIELDS = (
     "algorithm",
     "algorithm_family",
     "primitive",
+    "track",
+    "lifetime_years",
+    "reason",
     "key_size",
     "quantum_safe",
     "severity",
@@ -38,6 +41,10 @@ class ScanStore(Protocol):
     async def list_recent(self, user_id: int, limit: int = 20) -> list[dict]: ...
 
     async def get(self, scan_id: int, user_id: int) -> dict | None: ...
+
+    async def cbom(self, scan_id: int, user_id: int) -> dict | None:
+        """The scan's stored CycloneDX document, or None (missing, not yours, or no CBOM)."""
+        ...
 
 
 def finding_to_dict(finding: Finding) -> dict:
@@ -56,6 +63,7 @@ def scan_to_dict(scan: Scan) -> dict:
         "created_at": scan.created_at,
         "completed_at": scan.completed_at,
         "findings": [finding_to_dict(f) for f in scan.findings],
+        "has_cbom": scan.cbom is not None,
     }
 
 
@@ -79,6 +87,10 @@ class DbScanStore:
     async def get(self, scan_id: int, user_id: int) -> dict | None:
         scan = await self.db.scalar(self._scoped(user_id).where(Scan.id == scan_id))
         return scan_to_dict(scan) if scan else None
+
+    async def cbom(self, scan_id: int, user_id: int) -> dict | None:
+        scan = await self.db.scalar(self._scoped(user_id).where(Scan.id == scan_id))
+        return scan.cbom.cbom_json if scan and scan.cbom else None
 
 
 def get_scan_store(db: Annotated[AsyncSession, Depends(get_db)]) -> ScanStore:

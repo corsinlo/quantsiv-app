@@ -99,3 +99,10 @@ def test_dashboard_empty_state():
 
 def test_status_vocabulary():
     assert [s.value for s in ScanStatus] == ["queued", "running", "done", "failed"]
+
+
+def test_tracks_are_labelled():
+    html = render("scan_details.html", scan=SCANS[1])
+    assert "HNDL · 25-year data" in html
+    assert "Signature deadline" in html
+    assert "Protects data that must stay confidential for 25 years." in html

@@ -8,7 +8,7 @@ arq==0.28.0
 SQLAlchemy==2.0.23
 alembic==1.13.1
 PyGithub==2.3.0
-cyclonedx-python-lib==11.12.0
+cyclonedx-python-lib[json-validation]==11.12.0
 jinja2==3.1.6
 weasyprint==70.0
 stripe==8.2.0
@@ -25,3 +25,5 @@ httpx
 # Async database drivers: Postgres in deployment, SQLite for local tests (A51)
 asyncpg
 aiosqlite
+# quantsiv.yml: declared data lifetimes (WP6)
+pyyaml

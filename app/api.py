@@ -6,7 +6,7 @@ import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.auth import PageUser, SessionUser, User, verify_csrf
@@ -99,6 +99,19 @@ async def scan_live(request: Request, scan_id: int, user: PageUser, store: Store
 async def get_scan(scan_id: int, user: User, store: Store):
     """Get scan details as JSON"""
     return await _scan_or_404(scan_id, user, store)
+
+
+@router.get("/api/scans/{scan_id}/cbom")
+async def get_scan_cbom(scan_id: int, user: User, store: Store):
+    """The scan's CBOM as plain CycloneDX 1.6 JSON, as a download."""
+    cbom = await store.cbom(scan_id, user.id)
+    if cbom is None:
+        raise HTTPException(status_code=404, detail="No CBOM for this scan")
+    return JSONResponse(
+        cbom,
+        media_type="application/vnd.cyclonedx+json",
+        headers={"Content-Disposition": f'attachment; filename="scan-{scan_id}.cdx.json"'},
+    )
 
 
 REPO_PATTERN = re.compile(r"[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}")

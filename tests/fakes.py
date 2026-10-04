@@ -4,9 +4,12 @@ from app.models import ScanStatus
 
 FINDINGS = [
     {
-        "severity": "high",
+        "severity": "critical",
         "algorithm": "ECDH",
         "primitive": "key-agree",
+        "track": "HNDL",
+        "lifetime_years": 25,
+        "reason": "Protects data that must stay confidential for 25 years.",
         "file_path": "net/handshake.py",
         "line_number": 12,
         "context_label": "Key exchange",
@@ -16,6 +19,8 @@ FINDINGS = [
         "severity": "medium",
         "algorithm": "RSA",
         "primitive": "signature",
+        "track": "signature deadline",
+        "reason": "Signature; deadline 31 Dec 2031.",
         "key_size": 2048,
         "file_path": "auth/jwt.py",
         "line_number": 47,
@@ -35,6 +40,7 @@ def scan(scan_id: int, status: ScanStatus, findings: list[dict] | None = None) -
         "findings": FINDINGS if findings is None else findings,
         "completed_at": "2026-10-04T06:20:00+00:00" if status == ScanStatus.DONE else None,
         "error_message": "Could not clone the repository" if status == ScanStatus.FAILED else None,
+        "has_cbom": status == ScanStatus.DONE,
     }
 
 
@@ -63,6 +69,12 @@ class FakeScanStore:
 
     async def get(self, scan_id: int, user_id: int) -> dict | None:
         return ALL_SCANS.get(scan_id) if OWNERS.get(scan_id) == user_id else None
+
+    async def cbom(self, scan_id: int, user_id: int) -> dict | None:
+        scan = await self.get(scan_id, user_id)
+        if scan and scan.get("has_cbom"):
+            return {"bomFormat": "CycloneDX", "specVersion": "1.6"}
+        return None
 
 
 class FakeRepoAccess:
