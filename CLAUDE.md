@@ -9,8 +9,8 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0 (hygiene) and WP1 (build, boot, smoke tests, CI) are implemented and awaiting review. With
-them the app **boots but does nothing real yet**:
+WP0 (hygiene) and WP1 (build, boot, smoke tests, CI) have landed (PR #2), and CI runs on every
+push. D1 and D7 are confirmed. The app **boots but does nothing real yet**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which still show placeholder
   data (WP2 makes them honest);
 - `python -m arq app.worker.WorkerSettings` starts, with no-op jobs (WP4 implements them);

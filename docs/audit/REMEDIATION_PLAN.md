@@ -20,8 +20,8 @@ that changes.
 
 | WP | Title | Status | PR | Notes |
 | --- | --- | --- | --- | --- |
-| WP0 | Repository hygiene | review | | Branch `claude/quantsiv-app-mvp-handover-j1d0oi`; acceptance checks pass locally. The empty dirs did not exist in the clone |
-| WP1 | Build, boot, smoke tests, CI | review | | Same branch as WP0. Local: ruff, pytest (28, 55% cov), pip-audit clean, uvicorn serves `/health`, arq worker starts. Docker build not runnable in the cloud VM (Debian mirrors blocked); verify in the CI `docker` job |
+| WP0 | Repository hygiene | done | #2 | The empty directories did not exist in the clone |
+| WP1 | Build, boot, smoke tests, CI | done | #2 | CI green (test, docker web, docker worker). Docker can't build in the cloud VM (Debian mirrors blocked); rely on CI |
 | WP2 | Honest, accessible UI | todo | | |
 | WP3 | Security foundation | todo | | |
 | WP4 | Data layer and worker | todo | | |
