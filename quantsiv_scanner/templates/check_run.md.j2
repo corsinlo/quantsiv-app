@@ -1,0 +1,18 @@
+{{ v.summary }}
+
+{% for e in v.added %}
+- {% if e.blocking %}BLOCKED{% elif e.exception %}EXCEPTION{% else %}ok{% endif %}: {{ e.algorithm }}{% if e.key_size %}-{{ e.key_size }}{% endif %}{% if e.file_path %} at {{ e.file_path }}{% if e.line_number %}:{{ e.line_number }}{% endif %}{% endif %}
+  - track: {{ e.track }}; declared lifetime: {% if e.lifetime_years is not none %}{{ e.lifetime_years }} years{% else %}not declared{% endif %}; severity: {{ e.severity }}
+  - {{ e.reason }}
+{% if e.quantum_vulnerable %}
+  - authority: {{ e.authority }}
+  - alternatives: {{ e.alternatives }}
+{% endif %}
+{% if e.exception %}
+  - exception approved by {{ e.exception.approver }}, expires {{ e.exception.expires }}{% if e.exception.reason %}: {{ e.exception.reason }}{% endif %}
+{% endif %}
+{% endfor %}
+{% if v.removed %}
+Removed: {{ v.removed | join(", ") }}
+{% endif %}
+quantsiv-scanner {{ version }}; policy version {{ v.policy_version }}.

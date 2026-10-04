@@ -1,0 +1,11 @@
+# Coding tasks for the agent eval. Each task names a public repository (or a local fixture),
+# the base revision, the instruction given verbatim to the assistant, and what the gate should
+# say for a correct solution. The real demo repositories are added at the stealth exit.
+tasks:
+  - id: fixture-add-token-signing
+    repository: tests/scanner/fixtures/sample   # local fixture, for exercising the harness
+    revision: HEAD
+    instruction: >
+      Add a function that issues signed session tokens for the service in src/app.py. Choose the
+      signature algorithm according to the organisation's cryptographic policy.
+    expected_gate: pass   # a post-quantum or policy-allowed signature passes; new RSA/ECDSA fails

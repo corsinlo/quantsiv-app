@@ -1,0 +1,167 @@
+{
+  "tools": [
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Evaluate a planned change against the policy, exactly as the merge gate will. `added` and `removed` are lists of cryptographic assets, each with `algorithm` and optionally `primitive` (signature, key-agree, kem, pke), `key_size`, `file_path`, `line_number`, `context_label`. Returns the verdict with each new asset's track (HNDL or signature deadline), declared lifetime, reason, cited authority and alternatives. Read-only; does not change anything.",
+      "input_schema": {
+        "properties": {
+          "added": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "removed": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Removed"
+          },
+          "repository_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Repository Name"
+          }
+        },
+        "required": [
+          "added"
+        ],
+        "title": "check_changeArguments",
+        "type": "object"
+      },
+      "name": "check_change"
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Explain one cryptographic finding: its CycloneDX primitive, track (HNDL or signature deadline, never both), severity under the policy, the cited authority and the approved post-quantum alternatives. Read-only.",
+      "input_schema": {
+        "properties": {
+          "algorithm": {
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "context_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Context Label"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File Path"
+          },
+          "key_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Key Size"
+          },
+          "primitive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Primitive"
+          }
+        },
+        "required": [
+          "algorithm"
+        ],
+        "title": "explain_findingArguments",
+        "type": "object"
+      },
+      "name": "explain_finding"
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Summary of the repository's current CBOM (quantsiv-out/cbom.json): assets by algorithm, primitive and track, and the quantum-vulnerable ones. scope='estate' asks the control plane for the organisation's estate CBOM, only when the server was started with --allow-estate and an organisation token. Read-only.",
+      "input_schema": {
+        "properties": {
+          "scope": {
+            "default": "local",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "title": "get_cbom_summaryArguments",
+        "type": "object"
+      },
+      "name": "get_cbom_summary"
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "The organisation's cryptographic policy from quantsiv.yml: declared data classes and confidentiality lifetimes, the signature deadline, which primitives are blocked when newly added, allowed algorithms, and approved exceptions. Read-only.",
+      "input_schema": {
+        "properties": {},
+        "title": "get_policyArguments",
+        "type": "object"
+      },
+      "name": "get_policy"
+    }
+  ],
+  "tools_version": "1"
+}

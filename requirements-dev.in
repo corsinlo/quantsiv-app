@@ -10,3 +10,5 @@ pip-audit
 # WCAG check (WP2): pytest -m a11y; needs `python -m playwright install chromium`
 playwright==1.63.0
 axe-playwright-python==0.1.8
+# MCP server tests (WP10)
+mcp==2.3.0

@@ -27,10 +27,10 @@ that changes.
 | WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
 | WP5 | Scan pipeline safety | done | #6, #10 | Engine step landed with D2 (#10) |
 | WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
-| WP7 | Local runner and CBOM ingest | review | #9 (ingest), #10 (scanner) | Scanner image and GitHub Marketplace action are published at the stealth exit, not before |
+| WP7 | Local runner and CBOM ingest | done | #9, #10 | Scanner image and GitHub Marketplace action are published at the stealth exit, not before |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
-| WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 (#10) merged; D7 confirmed 2026-10-04. No LLM in this WP |
+| WP10 | Agent foundations: policy MCP server and gate explainer | review | | No LLM anywhere in it. The eval harness has no results yet |
 
 ## Founder decisions
 
@@ -383,35 +383,45 @@ D2 was confirmed on 2026-10-04 (Quantsiv's own rules engine first, CBOMkit merge
 **Acceptance:** total static weight per page is under 100 KB, excluding fonts (there are none).
 
 ## WP10 - Agent foundations: policy MCP server and gate explainer (D7)
-**BLOCKED until WP7 has landed.** D7 was confirmed on 2026-10-04. Nothing in this WP calls an LLM. Never add
+WP7 landed in #10; D7 was confirmed on 2026-10-04. Nothing in this WP calls an LLM. Never add
 UI or README copy claiming agents until this WP is merged.
-- [ ] `quantsiv_scanner/policy.py`. It loads the `policy:` section of `quantsiv.yml`: allowed and
+- [x] `quantsiv_scanner/policy.py`. It loads the `policy:` section of `quantsiv.yml`: allowed and
       blocked primitives per data class, declared lifetimes, and the signature deadline (default
       2031-12-31 per EO 14412 §4(b), configurable). It exposes `evaluate(cbom_delta) -> Verdict`.
       **The WP7 CI gate and the MCP server call this same function.**
-- [ ] `quantsiv mcp` subcommand: an MCP server over stdio, in the same package and container.
+      (`evaluate(added, removed, repository, policy, today)`; the scanner embeds the policy in the
+      CBOM's metadata as `quantsiv:policy`, so the control plane's upload gate applies the
+      repository's own policy. `quantsiv gate` runs it offline.)
+- [x] `quantsiv mcp` subcommand: an MCP server over stdio, in the same package and container.
+      (`quantsiv_scanner/mcp_server.py`, mcp SDK 2.3.0 pinned; `MCPServer` with four tools,
+      all annotated read-only.)
   - It is offline by default and **read-only**.
   - Tools: `get_policy`, `check_change`, `get_cbom_summary`, `explain_finding`.
   - No tool writes files, runs git or a shell, or opens a network connection. The one exception:
     with an org token, `get_cbom_summary` may read the estate CBOM through `GET /api/v1/cbom`
     with a read-only scope.
   - Use the official MCP Python SDK, pinned. Verify the current version and schema first.
-- [ ] Tool names, descriptions and schemas are static strings. A snapshot test fails if they
+- [x] Tool names, descriptions and schemas are static strings. A snapshot test fails if they
       change without a version bump. Tool outputs are plain data; never put repository text into
-      tool descriptions.
-- [ ] Gate explainer. It renders the check-run, the PR comment and the SARIF from a Jinja
-      template, using the CBOM delta and the dual-track scores. Each new asset shows:
+      tool descriptions. (`tests/scanner/mcp_tools_snapshot.json`, `TOOLS_VERSION`.)
+- [x] Gate explainer. It renders the check-run, the PR comment and the SARIF from a Jinja
+      template, using the CBOM delta and the dual-track scores. Each new asset shows: (`quantsiv_scanner/explainer.py`,
+      `templates/*.j2`; written by `quantsiv gate` and after an upload.)
   - its track ("HNDL" or "signature deadline");
   - its declared lifetime;
   - the cited authority;
   - the approved alternatives.
-- [ ] Exceptions. Each one needs a named approver and an expiry. It is recorded in the CBOM as a
-      namespaced property and in the audit log.
-- [ ] Audit log of every MCP tool call and every gate verdict, exportable to the evidence pack.
-- [ ] Eval harness in `evals/agent/`: a few coding tasks on public demo repos, run with and
+- [x] Exceptions. Each one needs a named approver and an expiry. It is recorded in the CBOM as a
+      namespaced property and in the audit log. (`quantsiv:exception` on the asset; the
+      verdict in `audit_events` lists excepted assets with approver and expiry.)
+- [x] Audit log of every MCP tool call and every gate verdict, exportable to the evidence pack.
+      (MCP: local `quantsiv-out/mcp-audit.jsonl`, argument hashes only. Gate verdicts:
+      `audit_events` table, `GET /api/v1/audit` with the org token.)
+- [x] Eval harness in `evals/agent/`: a few coding tasks on public demo repos, run with and
       without the MCP server across the assistants available. It records gate verdicts only.
       Its results feed the stealth-exit data report; never quote a benefit before it is
-      measured.
+      measured. (Harness and one fixture task exist; the public demo repositories and every
+      result are still to come. **No results yet.**)
 
 **Acceptance:**
 - The CI gate and `check_change` return identical verdicts on the same delta (a property test).

@@ -9,10 +9,10 @@ spec, revision 1.1).
 
 ## Current state (2026-10-04)
 
-WP0-WP6 and WP9 have landed (PRs #2-#9, with WP7's ingest half); WP7's scanner half and the WP5
-engine step are in review (#10). D1, D2 and D7 are confirmed. The app **signs users in with
-GitHub, stores installations, scans public repositories with Quantsiv's own rules engine, and
-takes CBOM uploads from any CI**:
+WP0-WP7 and WP9 have landed (PRs #2-#10); WP10 (policy MCP server, gate explainer) is in
+review. D1, D2 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
+scans public repositories with Quantsiv's own rules engine, takes CBOM uploads from any CI, and
+gates them on a per-repository policy**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
   (empty states otherwise). Routes read scans through `app/scans.py` (`DbScanStore`), scoped in
   SQL to the signed-in user's installations;
@@ -31,6 +31,11 @@ takes CBOM uploads from any CI**:
   (`/dashboard/tokens`) takes any schema-valid CycloneDX 1.6 CBOM (e.g. from CBOMkit), records
   its producer, scores its assets like a hosted scan (`services/results.py`) and returns a
   pass/fail gate on newly added quantum-vulnerable crypto. `GET /api/v1/cbom` exports the estate;
+- the policy (`quantsiv_scanner/policy.py`) is the one gate: `evaluate(added, removed, ...)`
+  is called by the upload endpoint, by `quantsiv gate` and by the MCP server's `check_change`.
+  The policy section of `quantsiv.yml` travels inside the CBOM (`quantsiv:policy`). Exceptions
+  need a named approver and an expiry. `quantsiv mcp` is read-only (annotated and tested), has
+  a snapshot-tested tool contract (`TOOLS_VERSION`), and logs calls to a local JSONL file;
 - `worker.record_results` scores engine findings on the dual track (`services/scoring.py`:
   HNDL by the lifetimes declared in the repo's `quantsiv.yml`, signature deadline otherwise),
   stores them, and stores a CycloneDX 1.6 CBOM (`services/cbom.py`);

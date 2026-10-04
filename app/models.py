@@ -178,6 +178,21 @@ class ApiToken(Base):
     installation: Mapped[Installation] = relationship()
 
 
+class AuditEvent(Base):
+    """Gate verdicts and other evidence-pack events per installation (WP10)."""
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    installation_id: Mapped[int] = mapped_column(
+        ForeignKey("installations.id", ondelete="CASCADE"), index=True
+    )
+    scan_id: Mapped[int | None] = mapped_column(ForeignKey("scans.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(40))  # "gate"
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class ShareLink(Base):
     """Revocable share links (A23): a random 32-byte token, stored only as its SHA-256."""
 
