@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     github_app_id: str
     github_app_private_key: SecretStr
     github_webhook_secret: SecretStr
+    # OAuth credentials of the same GitHub App, for user sign-in (A14)
+    github_client_id: str
+    github_client_secret: SecretStr
     session_secret: SecretStr
     stripe_secret_key: SecretStr | None = None
     stripe_webhook_secret: SecretStr | None = None

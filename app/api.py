@@ -6,13 +6,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
 
+from app.auth import PageUser, SessionUser, User, verify_csrf
 from app.models import ScanStatus
-from app.scans import ScanStore, get_scan_store
+from app.scans import RepoAccess, ScanStore, get_repo_access, get_scan_store
 from app.templating import templates
 
 router = APIRouter()
 Store = Annotated[ScanStore, Depends(get_scan_store)]
+Access = Annotated[RepoAccess, Depends(get_repo_access)]
 
 
 @router.get("/")
@@ -30,17 +33,17 @@ def _findings_count(scan: dict) -> int:
     return len(scan.get("findings") or [])
 
 
-async def _scan_or_404(scan_id: int, store: ScanStore) -> dict:
-    scan = await store.get(scan_id)
-    if scan is None:
+async def _scan_or_404(scan_id: int, user: SessionUser, store: ScanStore) -> dict:
+    scan = await store.get(scan_id, user.id)
+    if scan is None:  # missing and "not yours" look the same (A14)
         raise HTTPException(status_code=404, detail="Scan not found")
     return scan
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request, store: Store):
-    """Main dashboard page: recent scans from the store, or an empty state (A29)"""
-    scans = await store.list_recent()
+async def dashboard(request: Request, user: PageUser, store: Store):
+    """Main dashboard page: the user's recent scans, or an empty state (A29)"""
+    scans = await store.list_recent(user.id)
     done = [s for s in scans if s.get("status") == ScanStatus.DONE]
     scores = [s["risk_score"] for s in done if s.get("risk_score") is not None]
     stats = {
@@ -49,42 +52,56 @@ async def dashboard(request: Request, store: Store):
         "avg_risk_score": round(sum(scores) / len(scores)) if scores else None,
     }
     return templates.TemplateResponse(
-        request, "dashboard.html", {"title": "Dashboard", "scans": scans, "stats": stats}
+        request,
+        "dashboard.html",
+        {"title": "Dashboard", "user": user, "scans": scans, "stats": stats},
     )
 
 
 @router.get("/dashboard/scans/{scan_id}", response_class=HTMLResponse)
-async def scan_details(request: Request, scan_id: int, store: Store):
+async def scan_details(request: Request, scan_id: int, user: PageUser, store: Store):
     """Scan results page"""
-    scan = await _scan_or_404(scan_id, store)
+    scan = await _scan_or_404(scan_id, user, store)
     return templates.TemplateResponse(
         request,
         "scan_details.html",
-        {"scan": scan, "title": f"Scan results - {scan['repo_full_name']}"},
+        {"scan": scan, "user": user, "title": f"Scan results - {scan['repo_full_name']}"},
     )
 
 
 @router.get("/dashboard/scans/{scan_id}/live", response_class=HTMLResponse)
-async def scan_live(request: Request, scan_id: int, store: Store):
+async def scan_live(request: Request, scan_id: int, user: PageUser, store: Store):
     """Live scan progress page"""
-    scan = await _scan_or_404(scan_id, store)
+    scan = await _scan_or_404(scan_id, user, store)
     return templates.TemplateResponse(
         request,
         "scan_live.html",
-        {"scan_id": scan_id, "repo_name": scan["repo_full_name"], "title": f"Scanning {scan_id}"},
+        {
+            "scan_id": scan_id,
+            "repo_name": scan["repo_full_name"],
+            "user": user,
+            "title": f"Scanning {scan_id}",
+        },
     )
 
 
 # API Endpoints for Frontend
 @router.get("/api/scans/{scan_id}")
-async def get_scan(scan_id: int, store: Store):
+async def get_scan(scan_id: int, user: User, store: Store):
     """Get scan details as JSON"""
-    return await _scan_or_404(scan_id, store)
+    return await _scan_or_404(scan_id, user, store)
 
 
-@router.post("/api/scans", status_code=501)
-async def trigger_manual_scan():
-    """Manual scans need the queue and the data layer (WP4); until then say so (A29)"""
+class ScanRequest(BaseModel):
+    # GitHub's owner/name rules; defence in depth next to the installation check (A14)
+    repo_full_name: str = Field(pattern=r"^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$")
+
+
+@router.post("/api/scans", dependencies=[Depends(verify_csrf)])
+async def trigger_manual_scan(body: ScanRequest, user: User, access: Access):
+    """Manual scan: only repos in the user's installations (A14). Queueing arrives with WP4."""
+    if not await access.can_scan(user.id, body.repo_full_name):
+        raise HTTPException(status_code=404, detail="Repository not found")
     raise HTTPException(status_code=501, detail="Manual scans are not available yet")
 
 

@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
+from app import auth
 from app.api import router
 from app.config import get_settings
 from app.queue import close_queue
@@ -21,7 +23,8 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    is_prod = get_settings().env == "production"
+    settings = get_settings()
+    is_prod = settings.env == "production"
     app = FastAPI(
         title="Quantsiv",
         lifespan=lifespan,
@@ -30,9 +33,19 @@ def create_app() -> FastAPI:
         openapi_url=None if is_prod else "/openapi.json",
     )
     app.middleware("http")(security_headers)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret.get_secret_value(),
+        session_cookie="quantsiv_session",
+        max_age=auth.SESSION_MAX_AGE,
+        same_site="lax",
+        https_only=is_prod,
+    )
+    app.add_exception_handler(auth.LoginRequired, auth.login_redirect)
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     app.include_router(router)  # "/" and "/health" live in the router only
     app.include_router(webhooks.router)
+    app.include_router(auth.router)
     return app
 
 
