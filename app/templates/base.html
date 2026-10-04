@@ -5,9 +5,10 @@
     <link rel="icon" href="/static/logo-symbol.png" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - Quantsiv</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js"></script>
+    <meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false}'>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/js/htmx.min.js" defer></script>
+    {% block scripts %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
     <a href="#main-content"

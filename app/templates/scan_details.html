@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block scripts %}<script src="/static/js/disclosure.js" defer></script>{% endblock %}
+
 {% block content %}
 {% set public_key_primitives = ["signature"] + HNDL_EXPOSED|list %}
 <div class="space-y-6">
@@ -253,17 +255,4 @@
     </div>
     {% endif %}
 </div>
-
-<script>
-    // Disclosure rows (A43): toggle the details row and keep aria-expanded in sync.
-    // WP3 moves this into app/static/js/ for the CSP.
-    document.addEventListener('click', function (event) {
-        const button = event.target.closest('[data-disclosure]');
-        if (!button) return;
-        const panel = document.getElementById(button.getAttribute('aria-controls'));
-        const open = button.getAttribute('aria-expanded') === 'true';
-        button.setAttribute('aria-expanded', String(!open));
-        panel.hidden = open;
-    });
-</script>
 {% endblock %}

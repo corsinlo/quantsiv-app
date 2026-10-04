@@ -1,9 +1,8 @@
 """axe-core WCAG 2.1 A/AA check on the rendered pages (WP2 acceptance).
 
 Run with `pytest -m a11y`. Needs a Playwright Chromium: `python -m playwright install chromium`,
-or set PLAYWRIGHT_CHROMIUM_EXECUTABLE to an existing binary. Pages load Tailwind from its CDN
-until WP3 self-hosts it, so the colour-contrast results are only meaningful where that CDN is
-reachable (CI).
+or set PLAYWRIGHT_CHROMIUM_EXECUTABLE to an existing binary. The assets are self-hosted (WP3),
+so the check needs no network and also fails on any CSP violation.
 """
 
 import os
@@ -93,8 +92,14 @@ PAGES = [(False, "/dashboard"), (True, "/dashboard")] + [
     "store,path", PAGES, indirect=["store"], ids=[f"{p}{'' if d else '-empty'}" for d, p in PAGES]
 )
 def test_page_has_no_wcag_violations(store, path, page, base_url):
+    csp_errors = []
+    page.on(
+        "console",
+        lambda msg: "Content Security Policy" in msg.text and csp_errors.append(msg.text),
+    )
     _open(page, base_url + path)
     assert _violations(page) == []
+    assert csp_errors == [], "the CSP blocked something on this page (A20)"
 
 
 @pytest.mark.parametrize("store", [True], indirect=True)

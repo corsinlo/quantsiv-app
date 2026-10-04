@@ -108,3 +108,6 @@ tmp/
 temp/
 /tmp/*
 .aider*
+
+# Front-end build (package.json)
+node_modules/

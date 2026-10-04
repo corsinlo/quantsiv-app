@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import router
 from app.config import get_settings
+from app.security import security_headers
 
 
 def create_app() -> FastAPI:
@@ -17,6 +18,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
         openapi_url=None if is_prod else "/openapi.json",
     )
+    app.middleware("http")(security_headers)
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     app.include_router(router)  # "/" and "/health" live in the router only
     return app

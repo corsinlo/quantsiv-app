@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "description": "Front-end build for quantsiv-app: Tailwind CSS and vendored htmx (A19). Run `npm ci && npm run build` and commit app/static.",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i assets/tailwind.css -o app/static/app.css --minify",
+    "vendor:htmx": "cp node_modules/htmx.org/dist/htmx.min.js app/static/js/htmx.min.js",
+    "build": "npm run build:css && npm run vendor:htmx"
+  },
+  "devDependencies": {
+    "htmx.org": "2.0.11",
+    "tailwindcss": "3.4.19"
+  }
+}
