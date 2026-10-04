@@ -2,41 +2,41 @@
 API endpoints for Quantsiv MVP
 Handles GitHub App webhooks, dashboard, and scanning endpoints
 """
-from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-import uuid
-import hmac
-import hashlib
-from typing import Optional
 
-from app.models import User, Installation, Scan
+import hashlib
+import hmac
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+from app.config import get_settings
+from app.models import Installation
 from app.worker import ScanWorker
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 worker = ScanWorker()
 
-# In a real implementation, these would come from environment variables
-GITHUB_APP_ID = "placeholder_app_id"
-GITHUB_APP_PRIVATE_KEY = "placeholder_private_key"
-GITHUB_WEBHOOK_SECRET = "placeholder_webhook_secret"
-STRIPE_SECRET_KEY = "placeholder_stripe_key"
 
 @router.get("/")
 async def root():
     return {"message": "Quantsiv MVP API"}
 
+
 @router.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
+
 # GitHub App Webhook Endpoints
 @router.get("/auth/github/login")
 async def github_login():
-    """Redirect to GitHub OAuth login"
+    """Redirect to GitHub OAuth login"""
     # In real implementation: generate redirect URL to GitHub OAuth
     return {"url": "https://github.com/login/oauth/authorize?client_id=..."}
+
+
 @router.post("/webhook/github")
 async def github_webhook(request: Request):
     """Handle GitHub App webhooks"""
@@ -46,11 +46,12 @@ async def github_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Missing signature")
 
     body = await request.body()
-    expected_signature = "sha256=" + hmac.new(
-        GITHUB_WEBHOOK_SECRET.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
+    expected_signature = (
+        "sha256="
+        + hmac.new(
+            get_settings().github_webhook_secret.get_secret_value().encode(), body, hashlib.sha256
+        ).hexdigest()
+    )
 
     if not hmac.compare_digest(signature, expected_signature):
         raise HTTPException(status_code=403, detail="Invalid signature")
@@ -69,6 +70,7 @@ async def github_webhook(request: Request):
     # Add more event handlers as needed
 
     return {"status": "processed"}
+
 
 async def handle_installation(payload: dict):
     """Handle GitHub App installation"""
@@ -89,6 +91,7 @@ async def handle_installation(payload: dict):
         # Trigger initial scan of connected repos (up to plan limit)
         # await trigger_initial_scans(installation.id)
 
+
 async def handle_installation_repositories(payload: dict):
     """Handle repository access changes for installation"""
     action = payload.get("action")
@@ -102,6 +105,7 @@ async def handle_installation_repositories(payload: dict):
     # Trigger scans for newly added repositories
     # for repo in repositories_added:
     #     await worker.scan_repository(...)
+
 
 async def handle_push_event(payload: dict):
     """Handle push events to trigger scans"""
@@ -121,11 +125,13 @@ async def handle_push_event(payload: dict):
                 # Enqueue scan job
                 # await worker.scan_repository(str(uuid.uuid4()), installation_id, repo_full_name, "push")
 
+
 # Dashboard Routes
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Main dashboard page"""
-    return templates.TemplateResponse("dashboard.html", {"request": request, "title": "Quantsiv Dashboard"})
+    return templates.TemplateResponse(request, "dashboard.html", {"title": "Quantsiv Dashboard"})
+
 
 @router.get("/dashboard/scans/{scan_id}", response_class=HTMLResponse)
 async def scan_details(request: Request, scan_id: int):
@@ -143,24 +149,24 @@ async def scan_details(request: Request, scan_id: int):
                 "file_path": "auth/jwt.py",
                 "line_number": 47,
                 "context_label": "Token signing",
-                "key_size": 2048
+                "key_size": 2048,
             }
-        ]
+        ],
     }
-    return templates.TemplateResponse("scan_details.html", {
-        "request": request,
-        "scan": scan_data,
-        "title": f"Scan Results - {scan_data['repo_full_name']}"
-    })
+    return templates.TemplateResponse(
+        request,
+        "scan_details.html",
+        {"scan": scan_data, "title": f"Scan Results - {scan_data['repo_full_name']}"},
+    )
+
 
 @router.get("/dashboard/scans/{scan_id}/live", response_class=HTMLResponse)
 async def scan_live(request: Request, scan_id: int):
     """Live scan progress page with SSE"""
-    return templates.TemplateResponse("scan_live.html", {
-        "request": request,
-        "scan_id": scan_id,
-        "title": f"Scanning - {scan_id}"
-    })
+    return templates.TemplateResponse(
+        request, "scan_live.html", {"scan_id": scan_id, "title": f"Scanning - {scan_id}"}
+    )
+
 
 # API Endpoints for Frontend
 @router.get("/api/scans/{scan_id}")
@@ -174,8 +180,9 @@ async def get_scan(scan_id: int):
         "risk_score": 73,
         "findings": [],
         "created_at": "2026-09-30T10:00:00Z",
-        "completed_at": "2026-09-30T10:01:30Z"
+        "completed_at": "2026-09-30T10:01:30Z",
     }
+
 
 @router.post("/api/scans")
 async def trigger_manual_scan(repo_full_name: str):
@@ -184,8 +191,9 @@ async def trigger_manual_scan(repo_full_name: str):
     return {
         "message": "Scan queued",
         "repo_full_name": repo_full_name,
-        "scan_id": 1  # Placeholder
+        "scan_id": 1,  # Placeholder
     }
+
 
 # Health check for workers
 @router.get("/worker/health")

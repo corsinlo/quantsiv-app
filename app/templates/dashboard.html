@@ -14,12 +14,11 @@
         </div>
         <div class="flex items-center space-x-4">
             <button
-                hx-get="/onboarding/connect"
-                hx-target="#main-content"
-                hx-swap="innerHTML"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                type="button"
+                disabled aria-disabled="true" title="Coming soon"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
             >
-                Scan a Repository
+                Scan a Repository (coming soon)
             </button>
         </div>
     </div>
@@ -185,12 +184,11 @@
                 </p>
                 <div class="mt-2">
                     <button
-                        hx-get="/upgrade"
-                        hx-target="#main-content"
-                        hx-swap="innerHTML"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                        type="button"
+                        disabled aria-disabled="true" title="Coming soon"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
                     >
-                        See Plans
+                        See Plans (coming soon)
                     </button>
                 </div>
             </div>

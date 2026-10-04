@@ -13,10 +13,10 @@ Only move a row to **Built** when the code is merged and covered by tests.
 
 | Capability | Status | Where |
 | --- | --- | --- |
-| FastAPI app serving `/` and `/health` | Prototype: runs locally under uvicorn; no tests, and the Docker build fails (A09) | `app/main.py`, WP1 |
-| Dashboard and scan pages (Jinja2 + htmx) | Prototype templates with placeholder data | WP1, WP2 |
-| GitHub webhook handler | Prototype: not mounted, insecure placeholders | WP3 |
-| Data model (Postgres) and ARQ worker | Not built | WP4 |
+| FastAPI app serving `/` and `/health` | Prototype: boots under uvicorn; smoke tests and a Docker build in CI | `app/main.py`, WP1 |
+| Dashboard and scan pages (Jinja2 + htmx) | Prototype templates that render, with placeholder data; actions without a route are disabled | WP1, WP2 |
+| GitHub webhook handler | Prototype: mounted and verifies the signature with the configured secret; not hardened (A11-A13) and does nothing with events | WP3 |
+| Data model (Postgres) and ARQ worker | Not built: the worker starts, but its jobs are no-ops | WP4 |
 | Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |
 | TLS scanning (sslyze, verified domains only) | Planned | WP5 |
 | CycloneDX 1.6 CBOM output | Reference generator validated against the schema; not yet in the app | WP6 |
@@ -52,7 +52,8 @@ Only move a row to **Built** when the code is merged and covered by tests.
 
 ## Development
 
-Once WP1 has landed:
+Python 3.12. Dependencies are locked with hashes; edit `requirements*.in` and re-lock with the
+command in each file's header.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

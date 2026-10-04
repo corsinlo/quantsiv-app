@@ -21,7 +21,7 @@ that changes.
 | WP | Title | Status | PR | Notes |
 | --- | --- | --- | --- | --- |
 | WP0 | Repository hygiene | review | | Branch `claude/quantsiv-app-mvp-handover-j1d0oi`; acceptance checks pass locally. The empty dirs did not exist in the clone |
-| WP1 | Build, boot, smoke tests, CI | todo | | |
+| WP1 | Build, boot, smoke tests, CI | review | | Same branch as WP0. Local: ruff, pytest (28, 55% cov), pip-audit clean, uvicorn serves `/health`, arq worker starts. Docker build not runnable in the cloud VM (Debian mirrors blocked); verify in the CI `docker` job |
 | WP2 | Honest, accessible UI | todo | | |
 | WP3 | Security foundation | todo | | |
 | WP4 | Data layer and worker | todo | | |
@@ -101,28 +101,29 @@ tests/
 - `python -c "import ast;ast.parse(open('app/models.py','rb').read())"` succeeds.
 
 ## WP1 - Build, boot, smoke tests, CI (P0: A01-A09, A50)
-- [ ] `app/api.py:37`: close the docstring (A01).
-- [ ] `app/worker.py:133-137`: re-indent to 8 spaces (A02).
-- [ ] Split dependencies into `requirements.txt` (web), `requirements-worker.txt` and
+- [x] `app/api.py:37`: close the docstring (A01).
+- [x] `app/worker.py:133-137`: re-indent to 8 spaces (A02).
+- [x] Split dependencies into `requirements.txt` (web), `requirements-worker.txt` and
       `requirements-dev.txt`, using the pins in audit section 7 (A07, A18, A24).
-      Lock them with `pip-compile --generate-hashes`.
-- [ ] Convert every `TemplateResponse` call to `TemplateResponse(request, name, ctx)` (A08).
-- [ ] Mount the router in `main.py`; keep `/` and `/health` in one place; disable docs when
+      Lock them with `pip-compile --generate-hashes`. (Done with `uv pip compile --universal
+      --generate-hashes` for Python 3.12; the `.in` sources sit next to each lock.)
+- [x] Convert every `TemplateResponse` call to `TemplateResponse(request, name, ctx)` (A08).
+- [x] Mount the router in `main.py`; keep `/` and `/health` in one place; disable docs when
       `env == "production"` (A04).
-- [ ] Add `app/config.py`, the Settings class from audit section 7 (A10). Read the secrets that
+- [x] Add `app/config.py`, the Settings class from audit section 7 (A10). Read the secrets that
       `api.py:21-24` hard-codes from Settings instead.
-- [ ] Fix `scan_details.html`: `:64` becomes `</h2>`; delete the `{% endif %}` on `:97` (A05).
-- [ ] Fix `base.html`: remove the backtick-n on `:4`; add `id="main-content"` to `<main>` (A06).
+- [x] Fix `scan_details.html`: `:64` becomes `</h2>`; delete the `{% endif %}` on `:97` (A05).
+- [x] Fix `base.html`: remove the backtick-n on `:4`; add `id="main-content"` to `<main>` (A06).
       Hide or disable buttons whose routes don't exist.
-- [ ] Add a minimal `WorkerSettings` (no-op jobs are fine for now) so
+- [x] Add a minimal `WorkerSettings` (no-op jobs are fine for now) so
       `python -m arq app.worker.WorkerSettings` starts (A50).
-- [ ] Rewrite the Dockerfile as the two-stage file from audit section 7 (A09). Pin the base to
+- [x] Rewrite the Dockerfile as the two-stage file from audit section 7 (A09). Pin the base to
       `-bookworm`; Java goes in the worker stage only. Add `railway.toml` with
       `healthcheckPath = "/health"`.
-- [ ] Add these tests (code in audit section 7): `tests/conftest.py`, `tests/test_imports.py`,
+- [x] Add these tests (code in audit section 7): `tests/conftest.py`, `tests/test_imports.py`,
       `tests/test_templates.py`, and `tests/test_routes.py` (`/health` returns 200; every page
       renders).
-- [ ] Add `.github/workflows/ci.yml` (audit section 7): ruff, pytest with coverage, pip-audit,
+- [x] Add `.github/workflows/ci.yml` (audit section 7): ruff, pytest with coverage, pip-audit,
       and docker build for both targets.
 
 **Acceptance:**

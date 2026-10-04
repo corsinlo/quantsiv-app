@@ -1,22 +1,25 @@
 """
 Quantsiv MVP - Main FastAPI Application
 """
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
-app = FastAPI(title="Quantsiv", description="Quantum Risk Management Platform")
+from app.api import router
+from app.config import get_settings
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Templates
-templates = Jinja2Templates(directory="app/templates")
+def create_app() -> FastAPI:
+    is_prod = get_settings().env == "production"
+    app = FastAPI(
+        title="Quantsiv",
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None,
+        openapi_url=None if is_prod else "/openapi.json",
+    )
+    app.mount("/static", StaticFiles(directory="app/static"), name="static")
+    app.include_router(router)  # "/" and "/health" live in the router only
+    return app
 
-@app.get("/")
-async def root():
-    return {"message": "Quantsiv MVP - Quantum Risk Management Platform"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+app = create_app()
