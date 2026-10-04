@@ -1,0 +1,48 @@
+# .github/workflows/quantsiv.yml
+# Cryptography inventory (CBOM) on every push to the default branch and every pull request.
+name: quantsiv
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  security-events: write   # only for the SARIF upload to Code Scanning
+jobs:
+  cbom:
+    runs-on: ubuntu-latest
+    env:
+      QUANTSIV_IMAGE: ${{ vars.QUANTSIV_IMAGE }}   # your registry copy of the scanner image
+    steps:
+      - uses: actions/checkout@v4
+
+      # Optional: CBOMkit (Java, Python, Go). Build Java first for accurate results.
+      # - run: mvn -B clean package -DskipTests
+      # - uses: PQCA/cbomkit-action@v2.3.0
+      #   env:
+      #     CBOMKIT_LANGUAGES: java, python
+
+      - name: Scan
+        env:
+          QUANTSIV_TOKEN: ${{ secrets.QUANTSIV_TOKEN }}   # optional: enables upload and the gate
+        run: |
+          export QUANTSIV_STEP_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          UPLOAD=""
+          if [ -n "$QUANTSIV_TOKEN" ]; then UPLOAD="--upload"; fi
+          docker run --rm \
+            -e QUANTSIV_TOKEN -e QUANTSIV_STEP_STARTED -e GITHUB_REPOSITORY \
+            -v "$PWD:/src" -w /src "$QUANTSIV_IMAGE" \
+            scan /src --out /src/quantsiv-out $UPLOAD
+
+      - name: Upload CBOM, SARIF and report as a build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantsiv
+          path: quantsiv-out/
+
+      - name: Publish findings to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: quantsiv-out/findings.sarif

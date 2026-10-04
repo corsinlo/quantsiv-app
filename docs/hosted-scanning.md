@@ -18,9 +18,9 @@ Quantsiv clones a repository onto its own servers, exists for public repositorie
   (`GIT_CONFIG_*`), never in argv, the URL, `.git/config`, logs or user-visible errors. Shallow,
   single-branch, no tags, submodules, LFS, hooks or symlinks, https only. `.git` is deleted
   before scanning.
-- **Limited engine process (A16).** The engine (decision D2) must run through
+- **Limited engine process (A16).** The engine, `quantsiv_scanner` (decision D2), runs through
   `app.services.sandbox.run_limited`: timeout, CPU, memory and file-size limits, no core dumps
-  and a minimal environment (no secrets).
+  and a minimal environment (no secrets; `PYTHONPATH` to the app only).
 - **TLS scanning (A17)**, when built, only for DNS-TXT-verified domains and always through
   `app.services.ssrf.resolve_scan_target`.
 

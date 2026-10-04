@@ -20,6 +20,13 @@ jobs:
       - run: ruff check . && ruff format --check .
       - run: pytest --cov=app --cov-report=term-missing --cov-fail-under=50
       - run: pip-audit -r requirements.txt
+      - run: pip-audit -r requirements-scanner.txt
+      # WP7 acceptance: the scanner runs to completion with networking disabled
+      - name: Scanner runs offline
+        run: |
+          # unshare -n needs root on ubuntu-24.04 runners (unprivileged userns is restricted)
+          sudo env "PATH=$PATH" unshare -n python -m quantsiv_scanner scan tests/scanner/fixtures/sample --out /tmp/qs --repository acme/sample
+          test -s /tmp/qs/cbom.json && test -s /tmp/qs/findings.sarif
   postgres:
     # Migrations and the whole suite against Postgres, as deployed (A51)
     runs-on: ubuntu-latest
@@ -83,7 +90,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [web, worker]
+        target: [web, worker, scanner]
     steps:
       - uses: actions/checkout@v4
       - run: docker build --target ${{ matrix.target }} -t quantsiv-${{ matrix.target }} .
+      - name: Worker image can run the engine (what ScanPipeline.scan_source executes)
+        if: matrix.target == 'worker'
+        run: |
+          docker run --rm --network none -v "$PWD/tests/scanner/fixtures/sample:/src" --entrypoint python quantsiv-worker \
+            -m quantsiv_scanner scan /src --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["findings"], d'
+      - name: Scanner image scans the fixture offline
+        if: matrix.target == 'scanner'
+        run: |
+          docker run --rm --network none -v "$PWD/tests/scanner/fixtures/sample:/src" quantsiv-scanner \
+            scan /src --out /tmp/out --repository acme/sample
+          docker run --rm --network none -v "$PWD/tests/scanner/fixtures/sample:/src" quantsiv-scanner \
+            scan /src --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["findings"], d'
+

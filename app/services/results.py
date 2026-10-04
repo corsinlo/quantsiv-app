@@ -1,20 +1,13 @@
-"""Turn raw findings into scored, stored rows (WP6). Shared by hosted scans (the worker) and
-uploaded CBOMs (WP7 ingest), so both are ranked by exactly the same rules."""
+"""Turn scored findings into stored rows (WP6). Shared by hosted scans (the worker) and
+uploaded CBOMs (WP7 ingest), so both are ranked by exactly the same rules (`scoring.score`).
+This module needs the database models; the scanner imports `scoring` only."""
 
 import hashlib
-from datetime import date
 
 from app.models import Finding, Installation
-from app.services.lifetimes import Lifetimes
-from app.services.scoring import Assessment, assess, is_quantum_vulnerable, rank_key
+from app.services.scoring import Assessment, is_quantum_vulnerable, score
 
-
-def score(
-    findings: list[dict], repo_full_name: str, lifetimes: Lifetimes, today: date
-) -> list[tuple[Assessment, dict]]:
-    scored = [(assess(raw, repo_full_name, lifetimes, today), raw) for raw in findings]
-    scored.sort(key=lambda pair: rank_key(pair[0]))
-    return scored
+__all__ = ["finding_rows", "score"]
 
 
 def finding_rows(

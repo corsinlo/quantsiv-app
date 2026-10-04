@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import tempfile
 from dataclasses import dataclass
 from typing import ClassVar
@@ -31,18 +32,21 @@ from app.services.cbom import build_cbom
 from app.services.clone import clone_repository
 from app.services.errors import ScanError
 from app.services.github import GitHubApp
-from app.services.lifetimes import Lifetimes, parse_lifetimes
+from app.services.lifetimes import Lifetimes, read_lifetimes
 from app.services.results import finding_rows, score
+from app.services.sandbox import run_limited
 from app.services.scoring import severity_score
 
 logger = logging.getLogger(__name__)
 configure_logging()
 
 SCAN_TIMEOUT = 540  # seconds; below WorkerSettings.job_timeout so the scan is marked failed
+APP_ROOT = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)  # holds app/ and quantsiv_scanner/
 
 
 MAX_REPO_KB = 500 * 1024  # GitHub reports size in KB; larger repos are refused before cloning
-MAX_CONFIG_BYTES = 64 * 1024  # quantsiv.yml read from the (untrusted) cloned tree
 
 
 @dataclass
@@ -76,19 +80,18 @@ class ScanPipeline:
         return ScanResult(await self.scan_source(dest), lifetimes)
 
     async def scan_source(self, path: str) -> list[dict]:
-        # D2: run the chosen engine through app.services.sandbox.run_limited
-        raise ScanError("The scan engine is not available yet.")
-
-
-def read_lifetimes(repo_root: str) -> Lifetimes:
-    """quantsiv.yml from the repo root: a regular file, size-limited, never followed symlinks."""
-    path = os.path.join(repo_root, "quantsiv.yml")
-    if not os.path.isfile(path) or os.path.islink(path):
-        return Lifetimes()
-    if os.path.getsize(path) > MAX_CONFIG_BYTES:
-        raise ScanError("quantsiv.yml is larger than 64 KB")
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        return parse_lifetimes(handle.read())
+        """The D2 engine: `quantsiv_scanner` as a separate, limited process on the cloned tree
+        (no network isolation here; that is why only public repositories are scanned, D1)."""
+        stdout = await run_limited(
+            [sys.executable, "-m", "quantsiv_scanner", "scan", path, "--json"],
+            cwd=path,
+            env={"PYTHONPATH": APP_ROOT, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        try:
+            return json.loads(stdout)["findings"]
+        except (ValueError, KeyError, TypeError):
+            logger.warning("engine returned unreadable output")
+            raise ScanError("The scanner produced no readable result.") from None
 
 
 async def record_results(

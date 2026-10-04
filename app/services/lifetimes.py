@@ -17,6 +17,7 @@ Nothing here is guessed: without a declared lifetime the HNDL track is not used 
 a plain severity score.
 """
 
+import os
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -80,3 +81,17 @@ def parse_lifetimes(text: str | None) -> Lifetimes:
         signature_deadline=deadline,
         signature_trust_years=None if trust is None else _years(trust, "trust_lifetime_years"),
     )
+
+
+MAX_CONFIG_BYTES = 64 * 1024  # quantsiv.yml read from an untrusted tree
+
+
+def read_lifetimes(repo_root: str) -> Lifetimes:
+    """quantsiv.yml from the repo root: a regular file, size-limited, symlinks ignored."""
+    path = os.path.join(repo_root, "quantsiv.yml")
+    if not os.path.isfile(path) or os.path.islink(path):
+        return Lifetimes()
+    if os.path.getsize(path) > MAX_CONFIG_BYTES:
+        raise ScanError("quantsiv.yml is larger than 64 KB")
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        return parse_lifetimes(handle.read())

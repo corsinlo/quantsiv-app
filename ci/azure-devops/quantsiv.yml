@@ -1,0 +1,21 @@
+# Azure Pipelines template. Set QUANTSIV_IMAGE as a pipeline variable and QUANTSIV_TOKEN as a
+# secret variable (optional, enables upload and the gate).
+steps:
+  - checkout: self
+    fetchDepth: 1
+  - bash: |
+      export QUANTSIV_STEP_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      UPLOAD=""
+      if [ -n "$QUANTSIV_TOKEN" ]; then UPLOAD="--upload"; fi
+      docker run --rm \
+        -e QUANTSIV_TOKEN -e QUANTSIV_STEP_STARTED -e BUILD_REPOSITORY_NAME \
+        -v "$(Build.SourcesDirectory):/src" -w /src "$(QUANTSIV_IMAGE)" \
+        scan /src --out /src/quantsiv-out $UPLOAD
+    displayName: Cryptography inventory (Quantsiv)
+    env:
+      QUANTSIV_TOKEN: $(QUANTSIV_TOKEN)
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: quantsiv-out
+      artifactName: quantsiv

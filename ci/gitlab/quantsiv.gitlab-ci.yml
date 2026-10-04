@@ -1,0 +1,22 @@
+# Include from your .gitlab-ci.yml:
+#   include:
+#     - local: ci/gitlab/quantsiv.gitlab-ci.yml
+# Set QUANTSIV_IMAGE as a CI/CD variable; QUANTSIV_TOKEN as a masked variable to enable upload.
+quantsiv:
+  stage: test
+  image: docker:27
+  services: [docker:27-dind]
+  variables:
+    GIT_DEPTH: "1"
+  script:
+    - export QUANTSIV_STEP_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    - UPLOAD=""; if [ -n "$QUANTSIV_TOKEN" ]; then UPLOAD="--upload"; fi
+    - docker run --rm
+        -e QUANTSIV_TOKEN -e QUANTSIV_STEP_STARTED -e CI_PROJECT_PATH
+        -v "$CI_PROJECT_DIR:/src" -w /src "$QUANTSIV_IMAGE"
+        scan /src --out /src/quantsiv-out $UPLOAD
+  artifacts:
+    when: always
+    paths: [quantsiv-out/]
+    reports:
+      sast: quantsiv-out/findings.sarif

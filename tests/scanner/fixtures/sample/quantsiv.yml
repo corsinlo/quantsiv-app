@@ -1,0 +1,5 @@
+data_classes:
+  customer-records:
+    confidentiality_lifetime_years: 25
+repositories:
+  acme/sample: customer-records

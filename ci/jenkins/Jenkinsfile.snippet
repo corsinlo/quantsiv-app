@@ -1,0 +1,18 @@
+// Add to a declarative pipeline. QUANTSIV_IMAGE is a pipeline parameter or environment
+// variable; QUANTSIV_TOKEN is a Jenkins credential (string), optional.
+stage('Cryptography inventory (Quantsiv)') {
+    environment {
+        QUANTSIV_STEP_STARTED = sh(script: 'date -u +%Y-%m-%dT%H:%M:%SZ', returnStdout: true).trim()
+    }
+    steps {
+        withCredentials([string(credentialsId: 'quantsiv-token', variable: 'QUANTSIV_TOKEN')]) {
+            script {
+                docker.image(env.QUANTSIV_IMAGE).inside('--entrypoint=""') {
+                    def upload = env.QUANTSIV_TOKEN ? '--upload' : ''
+                    sh "python -m quantsiv_scanner scan . --out quantsiv-out --repository ${env.JOB_NAME} ${upload}"
+                }
+            }
+        }
+        archiveArtifacts artifacts: 'quantsiv-out/**', allowEmptyArchive: true
+    }
+}
