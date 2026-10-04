@@ -77,7 +77,7 @@ dmypy.json
 .pytype/
 
 # Cython debug symbols
-cython_debug.sqlite
+cython_debug/
 
 # IDE
 .vscode/
@@ -97,14 +97,11 @@ Thumbs.db
 # Logs
 *.log
 
-# Environment variables
-.env
-.env.example
-
 # Secrets
 secrets.json
+*.key
 *.pem
-*key*
+github-app-*.pem
 
 # Temporary files
 tmp/

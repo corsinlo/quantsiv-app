@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">`n    <link rel="icon" href="/static/logo-symbol.png" type="image/png">
+    <meta charset="UTF-8">
+    <link rel="icon" href="/static/logo-symbol.png" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - Quantsiv</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,7 +27,7 @@
         </header>
 
         <!-- Main Content -->
-        <main class="flex-1">
+        <main id="main-content" class="flex-1">
             <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                 {% block content %}{% endblock %}
             </div>

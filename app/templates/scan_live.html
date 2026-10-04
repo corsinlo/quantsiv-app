@@ -106,12 +106,11 @@
         </button>
         <button
             id="cancel-scan-btn"
-            hx-post="/api/scans/{{ scan_id }}/cancel"
-            hx-target="#main-content"
-            hx-swap="innerHTML"
-            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            type="button"
+            disabled aria-disabled="true" title="Coming soon"
+            class="px-4 py-2 bg-red-600 text-white rounded-md disabled:opacity-50"
         >
-            Cancel Scan
+            Cancel Scan (coming soon)
         </button>
     </div>
 </div>

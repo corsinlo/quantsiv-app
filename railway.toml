@@ -1,0 +1,3 @@
+# Railway ignores Docker HEALTHCHECK; configure the health check here (A09)
+[deploy]
+healthcheckPath = "/health"

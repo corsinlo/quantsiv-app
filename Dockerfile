@@ -1,41 +1,30 @@
-# Quantsiv MVP Dockerfile
-# Based on the cloud deployment plan from MVP specifications
+# Two targets (A09): `docker build --target web .` and `docker build --target worker .`
+# TODO: pin both base images by digest once CI is green.
 
-# Base image with Python 3.12 and OpenJDK 17 for cbomkit-lib
-FROM python:3.12-slim
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    openjdk-17-jre-headless \
+FROM python:3.12-slim-bookworm AS web
+# Pango/HarfBuzz for WeasyPrint (PDF reports)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
     && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
 WORKDIR /app
-
-# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
 COPY app/ ./app/
-
-# Create directory for cbomkit-lib JAR (would be copied or downloaded in real build)
-RUN mkdir -p /app/bin
-# In real build: copy cbomkit-lib.jar to /app/bin/
-# For MVP structure, we note where it would go
-
-# Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser
 USER appuser
-
-# Expose port
-EXPOSE 8000
-
-# Environment variables (would be set at runtime)
 ENV PORT=8000
-ENV HOST=0.0.0.0
+# Trust X-Forwarded-* only from the platform proxy; '*' is acceptable only when the
+# container is reachable solely through that proxy (Railway private networking)
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --forwarded-allow-ips=\"${FORWARDED_ALLOW_IPS:-*}\""]
 
-# Command to run the application
-# In real implementation: use supervisord or similar to run web + worker
-# For MVP simplicity, we'll start the web server and note worker would be separate
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+FROM python:3.12-slim-bookworm AS worker
+# git for cloning; Java only here, for the scan engine (decision D2)
+RUN apt-get update && apt-get install -y --no-install-recommends git openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements-worker.txt .
+RUN pip install --no-cache-dir -r requirements-worker.txt
+COPY app/ ./app/
+RUN adduser --disabled-password --gecos '' appuser
+USER appuser
+CMD ["python", "-m", "arq", "app.worker.WorkerSettings"]

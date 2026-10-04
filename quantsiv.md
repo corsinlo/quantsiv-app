@@ -365,8 +365,10 @@ Sales are **B2B only**. State that in the Terms and at checkout, which avoids th
 
 ## Delivery model
 
-Proposed 2026-10-03; founder decision D1. Two independent reviews reached this answer
-separately.
+Proposed 2026-10-03; confirmed by the founder on 2026-10-04 (decision D1). Two independent
+reviews reached this answer separately. Local-first is the default, not a permanent limit:
+hosted scanning of private repos may be offered later as an opt-in, once a network-less sandbox
+and the compliance work are funded.
 
 **Who it is for:** B2B only. Developers and AppSec engineers are the users and the adoption
 channel; organisations pay. There is no B2C product, because consumers have no cryptographic
@@ -455,7 +457,7 @@ estate to inventory and no deadline that forces a purchase.
 TLS and (later) cloud KMS/PKI and runtime. It is delivered as SaaS, self-hosted or air-gapped, not
 as a hosted monolith.
 
-## Agent layer (proposed; decision D7)
+## Agent layer (decision D7, confirmed 2026-10-04)
 
 > Status: planned. Nothing in this section is built. The README status table is the single
 > source of truth.

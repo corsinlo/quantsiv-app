@@ -7,15 +7,16 @@ The marketing site is the separate, **public** repo `quantsiv-landing`. The stra
 `quantsiv.md` (narrative, delivery model, pricing proposal) and `quantsiv_mvp_spec.md` (build
 spec, revision 1.1).
 
-## Current state (2026-10-03)
+## Current state (2026-10-04)
 
-The app is a skeleton and **nothing runs yet**:
-- the Docker build fails;
-- two modules don't parse;
-- the models don't exist;
-- the router isn't mounted;
-- one template doesn't compile;
-- the worker has no entry point.
+WP0 (hygiene) and WP1 (build, boot, smoke tests, CI) have landed (PR #2), and CI runs on every
+push. D1 and D7 are confirmed. The app **boots but does nothing real yet**:
+- `uvicorn app.main:app` serves `/health` and the dashboard pages, which still show placeholder
+  data (WP2 makes them honest);
+- `python -m arq app.worker.WorkerSettings` starts, with no-op jobs (WP4 implements them);
+- there are no real models, no authentication (WP3) and no scan engine (D2);
+- the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks
+  `deb.debian.org`).
 
 The full audit is in [`docs/audit/2026-10-03-app-audit.md`](docs/audit/2026-10-03-app-audit.md)
 (findings A01-A53). The work plan is
@@ -47,11 +48,13 @@ pytest
 ```
 
 **In Claude Code cloud sessions,** the SessionStart hook (`.claude/settings.json` running
-`scripts/install_pkgs.sh`) creates `.venv` and installs the requirements automatically. Until
-WP1 fixes the pins, that install is expected to fail and is skipped.
+`scripts/install_pkgs.sh`) creates `.venv` (Python 3.12 when available, matching CI) and
+installs `requirements.txt` and `requirements-dev.txt` automatically.
 - Use `.venv/bin/python -m pytest`, or `source .venv/bin/activate`.
-- Docker may be unavailable in the cloud VM. If `docker` is missing, rely on the CI
-  `docker build` job (WP1).
+- Docker may be unavailable in the cloud VM, and its default network policy blocks the Debian
+  mirrors the Dockerfile's `apt-get` needs. Rely on the CI `docker` job.
+- Dependencies: edit the `requirements*.in` files, then re-lock with the `uv pip compile` command
+  in each file's header (hashes, Python 3.12). Never hand-edit the `.txt` locks.
 
 ## Narrative: keep it identical everywhere, and cite the authority each time
 
@@ -87,7 +90,7 @@ WP1 fixes the pins, that install is expected to fail and is skipped.
 3. **The CBOM is the wedge.** Quantsiv is *built to* emit CycloneDX 1.6 CBOMs (the reference
    generator is in audit section 7). Do not write "already emits" until WP6 ships.
 
-## Delivery model (proposed; founder decision D1)
+## Delivery model (founder decision D1, confirmed 2026-10-04)
 
 - **Scanning happens in the customer's environment.** A local-first scanner (`quantsiv scan`
   CLI plus a signed container) runs in the customer's CI (GitHub Actions, GitLab, Jenkins via a
@@ -96,6 +99,10 @@ WP1 fixes the pins, that install is expected to fail and is skipped.
   finding metadata, and can later be self-hosted or air-gapped.
 - **Server-side cloning is for public repos and demos only.** The spec's GitHub App flow is
   kept for those and nothing else.
+- **Local-first is the default, not a permanent limit.** Hosted scanning of private repos may
+  be offered later as an opt-in, once a network-less sandbox (A16) and the compliance work are
+  funded. Word claims so they stay true then: "scanning runs in your CI by default", not an
+  absolute "your code never leaves".
 - **B2B only.** See `quantsiv.md`, "Delivery model".
 - **Positioning (decision D6).** Quantsiv is *cryptographic change control and CBOM evidence*,
   complementary to posture platforms (QIZ Security, Wiz for PQC Readiness):
@@ -116,7 +123,7 @@ WP1 fixes the pins, that install is expected to fail and is skipped.
   - Never invent algorithms.
   - Never ship our own cryptographic implementations to customers without CMVP (FIPS 140-3)
     validation.
-- **Agents (D7, D8).**
+- **Agents (D7 confirmed 2026-10-04; D8 open).**
   - Agents propose, deterministic tools decide, and a human approves.
   - Never add auto-merge or auto-deploy.
   - The MCP server has no write tools.

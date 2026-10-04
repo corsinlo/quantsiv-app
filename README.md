@@ -13,17 +13,17 @@ Only move a row to **Built** when the code is merged and covered by tests.
 
 | Capability | Status | Where |
 | --- | --- | --- |
-| FastAPI app serving `/` and `/health` | Prototype: runs locally under uvicorn; no tests, and the Docker build fails (A09) | `app/main.py`, WP1 |
-| Dashboard and scan pages (Jinja2 + htmx) | Prototype templates with placeholder data | WP1, WP2 |
-| GitHub webhook handler | Prototype: not mounted, insecure placeholders | WP3 |
-| Data model (Postgres) and ARQ worker | Not built | WP4 |
+| FastAPI app serving `/` and `/health` | Prototype: boots under uvicorn; smoke tests and a Docker build in CI | `app/main.py`, WP1 |
+| Dashboard and scan pages (Jinja2 + htmx) | Prototype templates that render, with placeholder data; actions without a route are disabled | WP1, WP2 |
+| GitHub webhook handler | Prototype: mounted and verifies the signature with the configured secret; not hardened (A11-A13) and does nothing with events | WP3 |
+| Data model (Postgres) and ARQ worker | Not built: the worker starts, but its jobs are no-ops | WP4 |
 | Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |
 | TLS scanning (sslyze, verified domains only) | Planned | WP5 |
 | CycloneDX 1.6 CBOM output | Reference generator validated against the schema; not yet in the app | WP6 |
 | HNDL scoring from declared data lifetimes, plus a separate signature-deadline track | Planned | WP6 |
 | CBOM import (any CycloneDX 1.6) and export | Planned | WP7 |
-| Agent foundations: read-only policy MCP server for AI coding assistants, gate explainer | Planned; decision D7 | WP10 |
-| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; delivery model is decision D1 | WP7 |
+| Agent foundations: read-only policy MCP server for AI coding assistants, gate explainer | Planned; needs WP7 | WP10 |
+| Local runner `quantsiv scan` and CI templates (GitHub Actions, GitLab, Jenkins, Azure DevOps) | Planned; delivery model D1 confirmed | WP7 |
 | Legal pages | Planned; content needs decision D4 | WP8 |
 | Evidence reports (PDF), billing, emails | Planned; requirements are in WP8, pricing needs decision D5 | WP8 |
 
@@ -52,7 +52,8 @@ Only move a row to **Built** when the code is merged and covered by tests.
 
 ## Development
 
-Once WP1 has landed:
+Python 3.12. Dependencies are locked with hashes; edit `requirements*.in` and re-lock with the
+command in each file's header.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

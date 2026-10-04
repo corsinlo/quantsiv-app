@@ -37,20 +37,18 @@
             </div>
             <div class="flex space-x-3">
                 <button
-                    hx-get="/api/scans/{{ scan.id }}/export-pdf"
-                    hx-trigger="click"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                    {% if scan.risk_score == 0 %}disabled{% endif %}
+                    type="button"
+                    disabled aria-disabled="true" title="Coming soon"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
                 >
-                    Export Compliance Report
+                    Export Compliance Report (coming soon)
                 </button>
                 <button
-                    hx-get="/onboarding/connect"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                    type="button"
+                    disabled aria-disabled="true" title="Coming soon"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md disabled:opacity-50"
                 >
-                    Scan Another Repo
+                    Scan Another Repo (coming soon)
                 </button>
             </div>
         </div>
@@ -61,7 +59,7 @@
     <!-- Risk Score Breakdown -->
     <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4">
-            <h2 class="text-lg font-bold text-gray-900 mb-4">Risk Score Breakdown</div>
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Risk Score Breakdown</h2>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                 <div>
                     <p class="text-xs font-medium text-gray-500">Critical</p>
@@ -94,7 +92,6 @@
             </div>
         </div>
     </div>
-    {% endif %}
 
     <!-- Findings Table -->
     <div class="bg-white rounded-lg shadow">
@@ -168,12 +165,11 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button
-                                    hx-get="/api/findings/{{ finding.id }}/detail"
-                                    hx-target="#finding-detail-{{ finding.id }}"
-                                    hx-swap="innerHTML"
-                                    class="text-indigo-600 hover:text-indigo-900 underline"
+                                    type="button"
+                                    disabled aria-disabled="true" title="Coming soon"
+                                    class="text-indigo-600 underline disabled:opacity-50"
                                 >
-                                    View Fix
+                                    View Fix (coming soon)
                                 </button>
                             </td>
                         </tr>
@@ -265,12 +261,11 @@
         </p>
         <div class="mt-4">
             <button
-                hx-get="/onboarding/connect"
-                hx-target="#main-content"
-                hx-swap="innerHTML"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                type="button"
+                disabled aria-disabled="true" title="Coming soon"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
             >
-                Try Again
+                Try Again (coming soon)
             </button>
         </div>
     </div>
