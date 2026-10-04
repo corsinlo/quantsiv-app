@@ -30,7 +30,7 @@ that changes.
 | WP7 | Local runner and CBOM ingest | done | #9, #10 | Scanner image and GitHub Marketplace action are published at the stealth exit, not before |
 | WP8 | Legal and privacy surfaces | in progress (routes, erasure) / blocked (content, D4/D5) | | Routes, placeholders and the erasure flow built; every legal text waits for D4/D5 and counsel |
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
-| WP10 | Agent foundations: policy MCP server and gate explainer | review | | No LLM anywhere in it. The eval harness has no results yet |
+| WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
 
 ## Founder decisions
 
