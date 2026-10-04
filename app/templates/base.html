@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/static/logo-symbol.png" type="image/png">
+    <link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="icon" href="/static/favicon-16.png" sizes="16x16" type="image/png">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - Quantsiv</title>
     <meta name="csrf-token" content="{{ csrf_token(request) }}">
@@ -23,7 +25,8 @@
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
                         <a href="/dashboard" class="inline-flex items-center">
-                            <img src="/static/logo-symbol.png" alt="Quantsiv home" class="h-8 w-auto">
+                            <img src="/static/logo-64.png" srcset="/static/logo-64.png 2x, /static/logo-128.png 4x"
+                                 width="32" height="32" alt="Quantsiv home" class="h-8 w-8">
                         </a>
                     </div>
                     {% if user %}

@@ -112,7 +112,7 @@ def test_manual_scan_rejects_invalid_repo_names(client, queue, name):
 
 
 def test_static_logo_is_served():
-    assert TestClient(app).get("/static/logo-symbol.png").status_code == 200
+    assert TestClient(app).get("/static/logo-64.png").status_code == 200
 
 
 def test_docs_are_disabled_in_production(monkeypatch):
