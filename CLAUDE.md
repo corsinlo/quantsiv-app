@@ -20,6 +20,10 @@ repositories, and can score findings and build CBOMs, but has no scan engine yet
 - a scan gets a down-scoped token, refuses private or oversized repos, clones with the hardened
   clone, revokes the token, then fails with "The scan engine is not available yet." (D2). Never
   let a stub produce findings. Hosted-scanning rules: `docs/hosted-scanning.md`;
+- CI uploads work today: `POST /api/v1/cbom?repository=owner/name` with an org token
+  (`/dashboard/tokens`) takes any schema-valid CycloneDX 1.6 CBOM (e.g. from CBOMkit), records
+  its producer, scores its assets like a hosted scan (`services/results.py`) and returns a
+  pass/fail gate on newly added quantum-vulnerable crypto. `GET /api/v1/cbom` exports the estate;
 - once the engine returns findings, `worker.record_results` scores them on the dual track
   (`services/scoring.py`: HNDL by the lifetimes declared in the repo's `quantsiv.yml`,
   signature deadline otherwise), stores them, and stores a CycloneDX 1.6 CBOM

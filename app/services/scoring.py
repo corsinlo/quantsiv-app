@@ -102,7 +102,10 @@ def assess(finding: dict, repo_full_name: str, lifetimes: Lifetimes, today: date
     if not is_quantum_vulnerable(finding):
         return Assessment(primitive, TRACK_SEVERITY, "info", None, "Not quantum-vulnerable.")
     if primitive in HNDL_EXPOSED:
-        years = lifetimes.confidentiality_years(repo_full_name)
+        # A lifetime declared on the asset itself (an uploaded CBOM's quantsiv property) wins
+        years = finding.get("lifetime_years")
+        if years is None:
+            years = lifetimes.confidentiality_years(repo_full_name)
         if years is None:
             return Assessment(
                 primitive,

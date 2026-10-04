@@ -27,7 +27,7 @@ that changes.
 | WP4 | Data layer and worker | done | #5 | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
 | WP5 | Scan pipeline safety | done | #6 | Engine part blocked by D2. Also: manual scans from the dashboard, public repos only (D1) |
 | WP6 | CBOM and HNDL scoring | done | #7 | Severity thresholds are our own documented rule (services/scoring.py). Also: per-scan CBOM download. Runs on real findings once the D2 engine exists |
-| WP7 | Local runner and CBOM ingest | todo | | D1 confirmed 2026-10-04 |
+| WP7 | Local runner and CBOM ingest | review (ingest) / blocked (scanner, D2) | | Ingest, tokens, delta gate and export built; CLI and CI templates wait for D2 |
 | WP8 | Legal and privacy surfaces | blocked | | Content needs D4/D5; routes can be built |
 | WP9 | Performance | review | | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
 | WP10 | Agent foundations: policy MCP server and gate explainer | blocked | | Needs WP7 landed (D7 confirmed 2026-10-04). No LLM in this WP |
@@ -304,6 +304,8 @@ tests/
 
 ## WP7 - Local runner and CBOM ingest (D1)
 D1 was confirmed on 2026-10-04 (local-first by default; see the decision table).
+**The scanner half (CLI, CI templates, offline run, time-to-value) is BLOCKED by D2**, because
+the CLI's core is the engine. The ingest/export half is built.
 - [ ] Extract the engine glue into a `quantsiv_scanner` package with a CLI, `quantsiv scan`. It
       runs CBOMkit tooling and your own rules on a local checkout, then writes the CBOM
       (`build_cbom`), SARIF and an HNDL report, offline.
@@ -312,16 +314,20 @@ D1 was confirmed on 2026-10-04 (local-first by default; see the decision table).
   - [ ] GitLab CI component;
   - [ ] Jenkinsfile snippet (`docker.image(...).inside { sh 'quantsiv scan' }`);
   - [ ] Azure DevOps YAML.
-- [ ] `POST /api/v1/cbom`: org-token authenticated, CBOM JSON only (no source). It is
+- [x] `POST /api/v1/cbom`: org-token authenticated, CBOM JSON only (no source). It is
       validated against the 1.6 schema, stored per scan, and diffed against the previous scan.
-- [ ] Gate PRs on the CBOM **delta** (new vulnerable crypto), not the absolute count.
+      (`app/routers/v1.py`; tokens are created and revoked at `/dashboard/tokens`.)
+- [x] Gate PRs on the CBOM **delta** (new vulnerable crypto), not the absolute count.
+      (The upload response carries `gate: pass|fail` from the delta; posting it as a PR check
+      is the CI templates' job.)
 - [ ] **Offline by default** (D6): no network call and no token are needed to write the CBOM,
       SARIF and report. Upload happens only with an organisation token.
 - [ ] **Measure time-to-value:** record in the scanner output the time from the CI step starting
       to the first CBOM, so it can be reported per design partner.
-- [ ] **Import any CBOM** (D6): `POST /api/v1/cbom` accepts any schema-valid CycloneDX 1.6
+- [x] **Import any CBOM** (D6): `POST /api/v1/cbom` accepts any schema-valid CycloneDX 1.6
       CBOM, not only Quantsiv's, and stores the producing tool (`metadata.tools`) as provenance.
-- [ ] **Export endpoint:** returns the stored estate CBOM as plain CycloneDX 1.6 JSON.
+- [x] **Export endpoint:** returns the stored estate CBOM as plain CycloneDX 1.6 JSON.
+      (`GET /api/v1/cbom`, token-authenticated.)
 
 **Acceptance (WP7):**
 - A CBOM produced by CBOMkit's GitHub Action ingests and diffs cleanly.
