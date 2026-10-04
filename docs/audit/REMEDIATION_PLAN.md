@@ -22,7 +22,7 @@ that changes.
 | --- | --- | --- | --- | --- |
 | WP0 | Repository hygiene | done | #2 | The empty directories did not exist in the clone |
 | WP1 | Build, boot, smoke tests, CI | done | #2 | CI green (test, docker web, docker worker). Docker can't build in the cloud VM (Debian mirrors blocked); rely on CI |
-| WP2 | Honest, accessible UI | todo | | |
+| WP2 | Honest, accessible UI | review | | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
 | WP3 | Security foundation | todo | | |
 | WP4 | Data layer and worker | todo | | |
 | WP5 | Scan pipeline safety | todo | | Engine part blocked by D2 |
@@ -137,40 +137,44 @@ tests/
 - `uvicorn app.main:app` serves `/health`.
 
 ## WP2 - Honest, accessible UI (A28-A32, A41-A45, clean-scan text)
-- [ ] Delete the `Math.random()` counter at `scan_details.html:294-309` (A29).
-- [ ] `scan_details.html:167`: show `—` when `confidence is none` (A29).
-- [ ] `dashboard.html`: replace the hard-coded row with data from the route and an empty state.
+- [x] Delete the `Math.random()` counter at `scan_details.html:294-309` (A29).
+- [x] `scan_details.html:167`: show `—` when `confidence is none` (A29).
+- [x] `dashboard.html`: replace the hard-coded row with data from the route and an empty state.
       If a demo is shown, label it "Demo scan of a public repository" (A29).
-- [ ] Remove "Compliance Rate" (A29).
-- [ ] API stubs return 404 or 501 instead of fake scans. `POST /api/scans` returns 501 until
+      (Routes read from `app/scans.py`'s `ScanStore`, empty until WP4 plugs in the database. No
+      demo is shown.)
+- [x] Remove "Compliance Rate" (A29).
+- [x] API stubs return 404 or 501 instead of fake scans. `POST /api/scans` returns 501 until
       WP4 (A29).
-- [ ] Rewrite `dashboard.html:99-102` so it claims only what exists (A31).
-- [ ] README: replace "Features Implemented" with a built/planned status table, and remove
+- [x] Rewrite `dashboard.html:99-102` so it claims only what exists (A31).
+- [x] README: replace "Features Implemented" with a built/planned status table, and remove
       "by ~2032" (A31).
-- [ ] Add a `ScanStatus` StrEnum (`queued`/`running`/`done`/`failed`), used by the worker, API
+- [x] Add a `ScanStatus` StrEnum (`queued`/`running`/`done`/`failed`), used by the worker, API
       and templates (A32).
-- [ ] Risk text: show the HNDL paragraph only for `key-agree`/`kem`/`pke` findings, and drop the
+- [x] Risk text: show the HNDL paragraph only for `key-agree`/`kem`/`pke` findings, and drop the
       unsourced timeline (A30).
-- [ ] Contrast swaps: `orange-500` → `orange-700`, `yellow-400` → `yellow-700`,
+- [x] Contrast swaps: `orange-500` → `orange-700`, `yellow-400` → `yellow-700`,
       `green-500` → `green-700`, `indigo-500` → `indigo-600` (A41).
-- [ ] Underline in-text links in every template, including the legal templates WP8 creates
+- [x] Underline in-text links in every template, including the legal templates WP8 creates
       (A41). Do not edit or commit the untracked local draft `privacy_policy.html`.
-- [ ] `scan_live.html` (A42):
-  - [ ] `role="progressbar"` with `aria-*`, and `aria-live` on the counters;
-  - [ ] read the scan ID from a `data-scan-id` attribute;
-  - [ ] replace the custom confirm with `hx-confirm`;
-  - [ ] delete the `alert()`;
-  - [ ] make Back a link;
-  - [ ] pass `repo_name`.
-- [ ] `scan_details.html` (A43):
-  - [ ] accessible disclosure rows (`aria-expanded`/`aria-controls`, toggling `hidden`), with
+- [x] `scan_live.html` (A42):
+  - [x] `role="progressbar"` with `aria-*`, and `aria-live` on the counters;
+  - [x] read the scan ID from a `data-scan-id` attribute;
+  - [x] replace the custom confirm with `hx-confirm`; (the custom confirm is gone; Cancel stays
+        disabled until the cancel route exists, and WP4 adds `hx-post` with `hx-confirm` then)
+  - [x] delete the `alert()`;
+  - [x] make Back a link;
+  - [x] pass `repo_name`.
+- [x] `scan_details.html` (A43):
+  - [x] accessible disclosure rows (`aria-expanded`/`aria-controls`, toggling `hidden`), with
         unique IDs;
-  - [ ] Export becomes a link;
-  - [ ] `scope="col"` on headers, plus a caption;
-  - [ ] honest clean-scan text.
-- [ ] `dashboard.html` (A44): `aria-hidden` on decorative SVGs, `sr-only` repo names on "View"
+  - [ ] Export becomes a link; (still a disabled "coming soon" button: there is no export
+        route yet)
+  - [x] `scope="col"` on headers, plus a caption;
+  - [x] honest clean-scan text.
+- [x] `dashboard.html` (A44): `aria-hidden` on decorative SVGs (the decorative SVGs were removed), `sr-only` repo names on "View"
       links, and delete the `setInterval`.
-- [ ] `base.html` (A45, P3): skip link, logo link with `alt="Quantsiv home"`, and reduced-motion
+- [x] `base.html` (A45, P3): skip link, logo link with `alt="Quantsiv home"`, and reduced-motion
       handling for spinners.
 
 **Acceptance:**

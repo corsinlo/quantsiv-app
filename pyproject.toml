@@ -13,3 +13,6 @@ extend-select = ["I"]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+# The browser-based WCAG check runs in its own CI job: pytest -m a11y
+addopts = "-m 'not a11y'"
+markers = ["a11y: axe-core WCAG 2.1 A/AA check in a real browser (needs Playwright Chromium)"]

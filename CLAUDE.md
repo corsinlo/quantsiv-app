@@ -11,8 +11,11 @@ spec, revision 1.1).
 
 WP0 (hygiene) and WP1 (build, boot, smoke tests, CI) have landed (PR #2), and CI runs on every
 push. D1 and D7 are confirmed. The app **boots but does nothing real yet**:
-- `uvicorn app.main:app` serves `/health` and the dashboard pages, which still show placeholder
-  data (WP2 makes them honest);
+- `uvicorn app.main:app` serves `/health` and the dashboard pages. Since WP2 they show no
+  invented data: empty states, and 404/501 from routes and API stubs that have no data yet.
+  Routes read scans through `app/scans.py` (`ScanStore`), which WP4 backs with the database;
+- `pytest -m a11y` runs the axe-core WCAG check (Playwright Chromium; in this cloud VM set
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Plain `pytest` skips it;
 - `python -m arq app.worker.WorkerSettings` starts, with no-op jobs (WP4 implements them);
 - there are no real models, no authentication (WP3) and no scan engine (D2);
 - the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks

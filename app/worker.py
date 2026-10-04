@@ -14,6 +14,7 @@ from typing import ClassVar
 from arq.connections import RedisSettings
 
 from app.config import get_settings
+from app.models import ScanStatus
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +82,11 @@ class ScanWorker:
             await self._save_scan_results(scan_id, findings, cbom_json, risk_score, tls_results)
 
             # 12. Update scan status to completed
-            await self._update_scan_status(scan_id, "done")
+            await self._update_scan_status(scan_id, ScanStatus.DONE)
 
             return {
                 "scan_id": scan_id,
-                "status": "completed",
+                "status": ScanStatus.DONE,
                 "findings_count": len(findings),
                 "risk_score": risk_score,
             }
@@ -93,7 +94,7 @@ class ScanWorker:
         except Exception as e:
             # Update scan status to failed
             if scan_id:
-                await self._update_scan_status(scan_id, "failed", str(e))
+                await self._update_scan_status(scan_id, ScanStatus.FAILED, str(e))
             raise
 
         finally:
@@ -297,7 +298,7 @@ key = RSA.generate(2048)  # This should be detected as quantum-vulnerable
         print(f"  TLS results: {len(tls_results)}")
 
     async def _update_scan_status(
-        self, scan_id: int, status: str, error_message: str | None = None
+        self, scan_id: int, status: ScanStatus, error_message: str | None = None
     ) -> None:
         """Update scan status in database"""
         # In real implementation: UPDATE scans SET status=?, error_message=?, completed_at=?

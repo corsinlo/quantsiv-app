@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-6" data-scan-id="{{ scan_id }}">
     <!-- Scan Header -->
     <div class="border-b pb-4">
         <div class="flex justify-between items-start">
@@ -10,7 +10,7 @@
                     Scan in Progress
                 </h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    Scanning: {{ repo_name or 'unknown/repo' }}
+                    Scanning: {{ repo_name }}
                 </p>
             </div>
         </div>
@@ -23,10 +23,12 @@
                 <!-- Progress Bar -->
                 <div>
                     <div class="flex justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-600">Overall Progress</span>
-                        <span class="text-sm font-medium text-gray-600" id="progress-percent">0%</span>
+                        <span class="text-sm font-medium text-gray-700" id="progress-label">Overall progress</span>
+                        <span class="text-sm font-medium text-gray-700" id="progress-percent" aria-hidden="true">0%</span>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5" id="progress"
+                         role="progressbar" aria-labelledby="progress-label"
+                         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                         <div id="progress-bar" class="h-2.5 bg-indigo-600 rounded-full transition-width" style="width: 0%"></div>
                     </div>
                 </div>
@@ -85,10 +87,10 @@
                 <!-- Live Findings Counter -->
                 <div class="pt-4 border-t border-gray-200">
                     <div class="flex justify-between">
-                        <span class="text-sm font-medium text-gray-600">Live Results</span>
-                        <span class="text-sm font-medium text-indigo-600" id="findings-counter">0 findings</span>
+                        <span class="text-sm font-medium text-gray-700">Live results</span>
+                        <span class="text-sm font-medium text-indigo-700" id="findings-counter" aria-live="polite">0 findings</span>
                     </div>
-                    <div class="mt-2 space-y-1 text-sm text-gray-500">
+                    <div class="mt-2 space-y-1 text-sm text-gray-600" aria-live="polite">
                         <div id="current-step">Initializing scan...</div>
                     </div>
                 </div>
@@ -98,12 +100,12 @@
 
     <!-- Actions -->
     <div class="flex justify-end space-x-3">
-        <button
-            onclick="window.location.href='/dashboard'"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-        >
+        <a href="/dashboard"
+           class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 underline">
             Back to Dashboard
-        </button>
+        </a>
+        {# When POST /api/scans/{id}/cancel exists (WP4), enable this with hx-post and
+           hx-confirm="Cancel this scan?" (A42). #}
         <button
             id="cancel-scan-btn"
             type="button"
@@ -116,76 +118,43 @@
 </div>
 
 <script>
-// Server-Sent Events for live scan progress
-const eventSource = new EventSource(`/api/scans/${scan_id}/events`);
+// Live scan progress over Server-Sent Events. The /api/scans/{id}/events endpoint arrives with
+// WP4; WP3 moves this script into app/static/js/ for the CSP.
+const scanId = document.querySelector('[data-scan-id]').dataset.scanId;
+const eventSource = new EventSource(`/api/scans/${scanId}/events`);
 
-eventSource.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    updateScanProgress(data);
+eventSource.onmessage = function (event) {
+    updateScanProgress(JSON.parse(event.data));
 };
 
-eventSource.onerror = function(err) {
-    console.error("SSE Error:", err);
-    // In real app: handle reconnection or show error
+eventSource.onerror = function () {
+    document.getElementById('current-step').textContent =
+        'Live progress is unavailable. Reload the page to check the scan status.';
+    eventSource.close();
 };
 
 function updateScanProgress(data) {
-    // Update progress bar
     const progressPercent = data.progress || 0;
     document.getElementById('progress-percent').textContent = progressPercent + '%';
+    document.getElementById('progress').setAttribute('aria-valuenow', String(progressPercent));
     document.getElementById('progress-bar').style.width = progressPercent + '%';
 
-    // Update step statuses
-    const steps = data.steps || [];
-    steps.forEach((step, index) => {
+    (data.steps || []).forEach((step, index) => {
         const statusEl = document.getElementById(`step-${index + 1}-status`);
         if (statusEl) {
             statusEl.textContent = step.status || 'Pending';
-            if (step.status === 'completed') {
-                // Mark step as completed
-                const stepDot = document.querySelectorAll(`.flex-shrink-0 > div`)[index];
-                if (stepDot) {
-                    stepDot.classList.remove('bg-gray-300');
-                    stepDot.classList.add('bg-indigo-600');
-                }
-            } else if (step.status === 'failed') {
-                // Mark step as failed
-                const stepDot = document.querySelectorAll(`.flex-shrink-0 > div`)[index];
-                if (stepDot) {
-                    stepDot.classList.remove('bg-gray-300');
-                    stepDot.classList.add('bg-red-600');
-                }
-            }
         }
     });
 
-    // Update findings counter
     const findingsCount = data.findings_count || 0;
     document.getElementById('findings-counter').textContent = `${findingsCount} findings`;
+    document.getElementById('current-step').textContent = data.current_step || 'Processing...';
 
-    // Update current step description
-    const currentStep = data.current_step || 'Processing...';
-    document.getElementById('current-step').textContent = currentStep;
-
-    // Handle completion
-    if (data.status === 'completed') {
-        setTimeout(() => {
-            window.location.href = `/dashboard/scans/${scan_id}`;
-        }, 1500);
-    } else if (data.status === 'failed') {
-        document.getElementById('cancel-scan-btn').disabled = true;
-        document.getElementById('cancel-scan-btn').textContent = 'Failed';
+    // Statuses are the ScanStatus values: queued, running, done, failed (A32)
+    if (data.status === 'done' || data.status === 'failed') {
+        eventSource.close();
+        window.location.href = `/dashboard/scans/${scanId}`;
     }
 }
-
-// Handle cancel button
-document.getElementById('cancel-scan-btn').addEventListener('click', function() {
-    if (confirm('Are you sure you want to cancel this scan?')) {
-        // In real app: this would call the API to cancel
-        eventSource.close();
-        alert('Scan cancelled');
-        window.location.href = '/dashboard';
-    }
-});
 </script>
 {% endblock %}
