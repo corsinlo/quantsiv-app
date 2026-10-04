@@ -15,9 +15,9 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | --- | --- | --- |
 | FastAPI app serving `/` and `/health` | Prototype: boots under uvicorn; smoke tests and a Docker build in CI | `app/main.py`, WP1 |
 | Dashboard and scan pages (Jinja2 + htmx) | Prototype: no placeholder data; empty states until scans are stored (WP4). Checked against WCAG 2.1 A/AA with axe-core in CI | WP2 |
-| GitHub webhook handler | Built: signature check, size limit, deduplicated queueing; the worker filters events. Storing installations waits for WP4 | WP3 |
-| Sign-in (GitHub OAuth), sessions, CSRF, security headers | Built; per-tenant scoping is enforced through the scan store interface, which has no database until WP4 | WP3 |
-| Data model (Postgres) and ARQ worker | Not built: the worker starts, but its jobs are no-ops | WP4 |
+| GitHub webhook handler | Built: signature check, size limit, deduplicated queueing; the worker stores installations and filters pushes | WP3, WP4 |
+| Sign-in (GitHub OAuth), sessions, CSRF, security headers | Built; scans are scoped to the signed-in user in SQL | WP3, WP4 |
+| Data model (Postgres, Alembic) and ARQ worker | Built: installations are stored from webhooks, pushes create scan records. Every scan fails with "not available yet" until repository access (WP5) and the engine (D2) exist | WP4 |
 | Source scanning (Java and Python via CBOMkit, plus our own rules) | Planned; engine choice is decision D2 | WP5 |
 | TLS scanning (sslyze, verified domains only) | Planned | WP5 |
 | CycloneDX 1.6 CBOM output | Reference generator validated against the schema; not yet in the app | WP6 |
@@ -61,6 +61,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 npm ci && npm run build                    # only after changing templates, JS or Tailwind
 cp .env.example .env                       # then fill the values
+alembic upgrade head                       # DATABASE_URL: Postgres, or sqlite:///./quantsiv.db
 uvicorn app.main:app --reload
 python -m arq app.worker.WorkerSettings    # needs REDIS_URL
 pytest

@@ -1,3 +1,5 @@
 # Railway ignores Docker HEALTHCHECK; configure the health check here (A09)
 [deploy]
 healthcheckPath = "/health"
+# Apply database migrations (Postgres, DATABASE_URL) before the new web version starts (A51)
+preDeployCommand = ["alembic upgrade head"]

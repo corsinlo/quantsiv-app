@@ -10,6 +10,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
+# Migrations run from this image before each deploy (railway.toml preDeployCommand)
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
 RUN adduser --disabled-password --gecos '' appuser
 USER appuser
 ENV PORT=8000

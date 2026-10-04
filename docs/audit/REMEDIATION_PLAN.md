@@ -23,8 +23,8 @@ that changes.
 | WP0 | Repository hygiene | done | #2 | The empty directories did not exist in the clone |
 | WP1 | Build, boot, smoke tests, CI | done | #2 | CI green (test, docker web, docker worker). Docker can't build in the cloud VM (Debian mirrors blocked); rely on CI |
 | WP2 | Honest, accessible UI | done | #3 | axe-core check: `pytest -m a11y` (own CI job). Export link waits for an export route |
-| WP3 | Security foundation | review | | Share links wait for WP4 (`share_links` table) |
-| WP4 | Data layer and worker | todo | | |
+| WP3 | Security foundation | done | #4 | Share links wait for WP4 (`share_links` table) |
+| WP4 | Data layer and worker | review | | Scans run end to end but fail with "not available yet" until WP5 (access, clone) and D2 (engine): no invented findings |
 | WP5 | Scan pipeline safety | todo | | Engine part blocked by D2 |
 | WP6 | CBOM and HNDL scoring | todo | | |
 | WP7 | Local runner and CBOM ingest | todo | | D1 confirmed 2026-10-04 |
@@ -227,20 +227,23 @@ tests/
 - `grep -rn "cdn.tailwindcss\|unpkg.com\|onclick=" app/` prints nothing.
 
 ## WP4 - Data layer and worker (A03, A46, A50, A51)
-- [ ] SQLAlchemy 2.0 models for users, installations, scans, findings, cbom_snapshots and
+- [x] SQLAlchemy 2.0 models for users, installations, scans, findings, cbom_snapshots and
       tls_scans (spec §3). Also add:
   - `share_links` (A23): a random 32-byte token stored hashed, plus `expires_at` and
     `revoked_at`;
-  - `sessions`, if WP3 chose opaque sessions (A14).
-  - [ ] `findings.raw_match` is opt-in per tenant; store a snippet hash by default.
-- [ ] Alembic migrations. Postgres in deployment; SQLite only for local tests (A51).
-- [ ] ARQ jobs `scan_repository`, `handle_github_event` and `delete_account` (stub), plus
+  - `sessions`, if WP3 chose opaque sessions (A14). (Not needed: WP3 chose `SessionMiddleware`.)
+  - [x] `findings.raw_match` is opt-in per tenant; store a snippet hash by default.
+        (`installations.store_code_snippets`, default false, plus `findings.snippet_hash`; the
+        scanner that writes findings arrives with D2/WP6)
+- [x] Alembic migrations. Postgres in deployment; SQLite only for local tests (A51).
+- [x] ARQ jobs `scan_repository`, `handle_github_event` and `delete_account` (stub), plus
       `WorkerSettings` (audit section 7) (A50).
-- [ ] The API enqueues jobs through an `ArqRedis` pool created at startup. Remove the
-      import-time `ScanWorker()` (A50).
-- [ ] Replace blocking I/O in async code with `asyncio.to_thread` or
+- [x] The API enqueues jobs through an `ArqRedis` pool created at startup. Remove the
+      import-time `ScanWorker()` (A50). (Created on first use and closed at shutdown, in
+      `app/queue.py` since WP3, so the web app starts without Redis.)
+- [x] Replace blocking I/O in async code with `asyncio.to_thread` or
       `asyncio.create_subprocess_exec`, with timeouts (A46).
-- [ ] Error handling: store only `ScanError` messages in `scans.error_message`; everything else
+- [x] Error handling: store only `ScanError` messages in `scans.error_message`; everything else
       becomes "Internal error" and goes to the logs (A15).
 
 **Acceptance:**
