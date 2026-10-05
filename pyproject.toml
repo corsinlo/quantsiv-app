@@ -11,6 +11,8 @@ extend-select = ["I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tests/scanner/fixtures is scanner input, not test code
+norecursedirs = ["tests/scanner/fixtures", ".*", "node_modules", ".venv"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 # The browser-based WCAG check runs in its own CI job: pytest -m a11y

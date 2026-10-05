@@ -89,11 +89,16 @@ def report(results: list[dict], meta: dict) -> dict:
         **meta,
         "assets": len(results),
         "quantum_vulnerable": sum(1 for f in results if f["quantum_vulnerable"]),
+        "in_test_code": sum(1 for f in results if f.get("test_code")),
         "by_severity": dict(sorted(by_severity.items())),
         "by_track": dict(sorted(by_track.items())),
         "hndl_ranked": meta.get("lifetime_declared", False),
         "findings": results,
     }
+
+
+def _test_note(rep: dict) -> str:
+    return f", {rep['in_test_code']} in test code" if rep.get("in_test_code") else ""
 
 
 def report_markdown(rep: dict) -> str:
@@ -107,7 +112,10 @@ def report_markdown(rep: dict) -> str:
             f"{rep.get('seconds_to_first_cbom', 0):.1f} s"
         ),
         "",
-        f"**{rep['assets']} cryptographic assets, {rep['quantum_vulnerable']} quantum-vulnerable.**",
+        (
+            f"**{rep['assets']} cryptographic assets, {rep['quantum_vulnerable']} "
+            f"quantum-vulnerable{_test_note(rep)}.**"
+        ),
         "",
     ]
     if not rep["hndl_ranked"]:
@@ -125,6 +133,7 @@ def report_markdown(rep: dict) -> str:
     for f in rep["findings"]:
         where = f"{f['file_path']}:{f['line_number']}" if f.get("file_path") else "-"
         algo = f"{f['algorithm']}-{f['key_size']}" if f.get("key_size") else f["algorithm"]
+        where += " (test)" if f.get("test_code") else ""
         lines.append(f"| {f['severity']} | {f['track']} | {algo} | `{where}` | {f['reason']} |")
     lines += [
         "",

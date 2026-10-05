@@ -51,6 +51,7 @@ EXPECTED = [
     ("setup.sh", 4, "Ed25519", "signature", None),
     ("Dockerfile", 2, "X25519", None, 256),
     (".github-workflow.yml", 2, "RSA", None, 3072),
+    ("tests/test_keys.py", 3, "RSA", None, 1024),
 ]
 
 
@@ -119,3 +120,21 @@ def test_long_lines_are_skipped():
 )
 def test_file_kind(name, kind):
     assert file_kind(name) == kind
+
+
+def test_import_lines_are_not_assets():
+    text = (
+        "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey\n"
+        "import rsa\n"
+        "def f(k: Ed25519PrivateKey): ...\n"
+        "key = Ed25519PrivateKey.generate()\n"
+    )
+    assert [(f.line_number, f.algorithm) for f in scan_text(text, "a.py")] == [(4, "Ed25519")]
+    assert scan_text('import { generateKeyPairSync } from "crypto";', "a.ts") == []
+    assert scan_text("use openssl::rsa::Rsa;", "a.rs") == []
+
+
+def test_test_code_is_flagged_not_hidden(found):
+    findings, _ = found
+    assert findings[("tests/test_keys.py", 3, "RSA")].test_code is True
+    assert findings[("src/app.py", 6, "RSA")].test_code is False
