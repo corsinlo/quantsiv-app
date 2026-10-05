@@ -189,7 +189,9 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
   - Never copy code, strategy, pricing or audit material into `quantsiv-landing`. That repo is
     public, and GitHub Pages publishes everything in it.
   - Don't publish legal pages until D4 (legal identity) is answered.
-- **Scope.** Landing-page work happens in `quantsiv-landing`, not here.
+- **Scope.** Landing-page work happens in `quantsiv-landing`, not here. The approved claims,
+  the not-yet-true list and the landing comparison are in `docs/feature-claims.md`; check any
+  landing or README wording against it, and keep it current when a work package lands.
 - **Encoding.** Use UTF-8 with no BOM. Windows tooling previously wrote UTF-16 files into this
   repo, and that breaks Python. The repository stores LF; only Windows checkouts show CRLF,
   through `core.autocrlf`. WP0's `.gitattributes` makes LF explicit. Shell scripts must stay LF.
