@@ -140,7 +140,33 @@ Plus, when CBOMkit-action runs first: Java (JCA, BouncyCastle), Python (pyca/cry
   wrapper is invisible unless the call itself matches a rule.
 - Directories named `node_modules`, `vendor`, `dist`, `build`, `target` and dot-directories are
   skipped, as are symlinks, binary files, files over 2 MB and lines over 4,000 characters.
-- TLS endpoints are not scanned by this tool.
+- TLS endpoints are probed only when you name them (`--tls HOST`, below). One handshake per host
+  shows the protocol version, cipher suite and certificate (algorithm, key size, expiry). The
+  key-exchange group, which decides harvest-now-decrypt-later exposure, is read directly only on
+  Python 3.14 or newer; on older runtimes the probe makes a second handshake offering only
+  X25519MLKEM768 to learn whether the server accepts a hybrid exchange, and when even that is
+  not possible it says "group not observable" instead of guessing. No certificate chain is
+  validated: an expired or self-signed certificate is still inventory. Cipher-suite lists and
+  protocol downgrade behaviour are not enumerated (that is a full scan, which Quantsiv does not
+  claim).
+
+## TLS endpoints
+
+```bash
+quantsiv scan . --tls api.example.com --tls www.example.com
+```
+
+`--tls HOST` (repeatable, port 443 only) adds one handshake per host to the same CBOM. A
+finding is recorded for the endpoint's key exchange (`kem` when a hybrid group is used,
+`key-agree` for a classical group, `pke` for TLS 1.2 RSA key transport) and for the
+certificate's public key (`signature` track). Each is located at `tls://host:443`, so the gate
+and the estate diff treat endpoints separately. The command runs from your network and probes
+only what you name; it is your own assertion that you may test those hosts. A host that does not
+resolve or answer is reported on stderr and skipped.
+
+The control plane's hosted variant (the "TLS domains" page) is stricter: it contacts a domain
+only after you publish a DNS TXT record, re-checks the record before every scan, resolves
+through the SSRF guard and connects to the vetted address with SNI. See `docs/hosted-scanning.md`.
 
 ## Hosted scans
 

@@ -31,6 +31,7 @@ that changes.
 | WP8 | Legal and privacy surfaces | in progress (routes, erasure) / blocked (content, D4/D5) | | Routes, placeholders and the erasure flow built; every legal text waits for D4/D5 and counsel |
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
 | WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
+| WP11 | Phase 1 coverage: C/C++, Swift, Dart rules; key and certificate files; TLS endpoint probe | done | #15 | Added after the founder asked to wrap Phase 1 (2026-10-05). TLS is a one-handshake probe, not a cipher-suite scan; hosted only for DNS-TXT-verified domains |
 
 ## Founder decisions
 
@@ -265,8 +266,9 @@ tests/
 - [x] `services/github.py`: down-scoped installation tokens, revoked in `finally` (A52).
 - [x] `services/ssrf.py`: `resolve_scan_target` with the internal-suffix block-list. TLS scans
       only for DNS-TXT-verified domains; at most one handshake for unverified ones (A17).
-      (The guard is built and tested. TLS scanning itself and domain verification are not
-      built yet; the rule is recorded in `docs/hosted-scanning.md`.)
+      (Built in WP11: DNS TXT verification (`services/domains.py`), `services/tls.py`, the
+      `scan_tls` job and the "TLS domains" page. Unverified domains are not contacted at all.
+      The rule is recorded in `docs/hosted-scanning.md`.)
 - [x] Sandbox: the scanner runs as a separate process with a timeout and memory limit. Document
       that hosted scanning of private repos stays off until it can run with no network (A16).
       (`services/sandbox.py`; `docs/hosted-scanning.md`. The pipeline refuses private repos.)

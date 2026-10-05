@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">TLS domains</h1>
+        <p class="mt-2 text-sm text-gray-700">
+            Quantsiv opens one TLS connection to a domain you own and records the protocol
+            version, cipher suite, key-exchange group where the server reveals it, and the
+            certificate's algorithm, key size and expiry. It never connects to a domain until you
+            have proved ownership with a DNS TXT record, and it checks the record again before
+            every scan. Only port 443 is scanned, and only public addresses are reached.
+        </p>
+    </div>
+
+    {% if flash %}
+    <div role="status" id="flash"
+         class="rounded-md p-4 {% if flash[0] == 'error' %}bg-red-50 text-red-800{% else %}bg-green-50 text-green-800{% endif %}">
+        {{ flash[1] }}
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-bold text-gray-900 mb-2">Add a domain</h2>
+        {% if installations %}
+        <form method="post" action="/dashboard/domains" class="space-y-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+            <div>
+                <label for="installation_id" class="block text-sm font-medium text-gray-800">Installation</label>
+                <select id="installation_id" name="installation_id" class="mt-1 rounded-md border border-gray-400 px-3 py-2 text-sm">
+                    {% for installation in installations %}
+                    <option value="{{ installation.id }}">{{ installation.account_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="domain" class="block text-sm font-medium text-gray-800">Host name</label>
+                <input id="domain" name="domain" type="text" required maxlength="300"
+                       placeholder="api.example.com"
+                       class="mt-1 w-full sm:w-96 rounded-md border border-gray-400 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label for="lifetime_years" class="block text-sm font-medium text-gray-800">
+                    Years the data behind this endpoint must stay confidential (optional)
+                </label>
+                <input id="lifetime_years" name="lifetime_years" type="text" inputmode="numeric" maxlength="3"
+                       class="mt-1 w-24 rounded-md border border-gray-400 px-3 py-2 text-sm">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                Add domain
+            </button>
+        </form>
+        {% else %}
+        <p class="text-sm text-gray-700">
+            Install the Quantsiv GitHub App on an account or organisation first; domains belong to
+            an installation.
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-bold text-gray-900 mb-2">Your domains</h2>
+        {% if domains %}
+        <ul class="divide-y divide-gray-200" id="domains-list">
+            {% for domain in domains %}
+            <li class="py-3 space-y-2">
+                <p class="text-gray-900 font-medium">
+                    {{ domain.domain }}
+                    <span class="text-sm font-normal text-gray-700">
+                        ({{ domain.installation.account_name }}){% if domain.confidentiality_lifetime_years is not none %}, {{ domain.confidentiality_lifetime_years }} years{% endif %}
+                    </span>
+                </p>
+                {% if domain.verified_at %}
+                <p class="text-sm text-green-800">Verified {{ domain.verified_at|display_datetime }}</p>
+                <div class="flex items-center space-x-4">
+                    <form method="post" action="/dashboard/domains/{{ domain.id }}/scan">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="text-indigo-700 underline">Scan now<span class="sr-only"> {{ domain.domain }}</span></button>
+                    </form>
+                    <form method="post" action="/dashboard/domains/{{ domain.id }}/remove">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="text-red-700 underline">Remove<span class="sr-only"> {{ domain.domain }}</span></button>
+                    </form>
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-700">
+                    Not verified. Publish this DNS TXT record, then verify:
+                </p>
+                <dl class="text-sm text-gray-800">
+                    <div class="flex flex-wrap gap-x-2"><dt class="font-medium">Name</dt><dd><code>{{ txt_name(domain.domain) }}</code></dd></div>
+                    <div class="flex flex-wrap gap-x-2"><dt class="font-medium">Value</dt><dd><code>{{ txt_value(domain) }}</code></dd></div>
+                </dl>
+                <div class="flex items-center space-x-4">
+                    <form method="post" action="/dashboard/domains/{{ domain.id }}/verify">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="text-indigo-700 underline">Verify<span class="sr-only"> {{ domain.domain }}</span></button>
+                    </form>
+                    <form method="post" action="/dashboard/domains/{{ domain.id }}/remove">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="text-red-700 underline">Remove<span class="sr-only"> {{ domain.domain }}</span></button>
+                    </form>
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p id="domains-empty" class="text-sm text-gray-700">No domains yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

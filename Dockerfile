@@ -45,7 +45,8 @@ RUN pip install --no-cache-dir -r requirements-scanner.txt
 # Only the shared, dependency-light modules the scanner imports; no web app, no secrets
 COPY app/__init__.py ./app/
 COPY app/services/__init__.py app/services/cbom.py app/services/errors.py \
-     app/services/ingest.py app/services/lifetimes.py app/services/scoring.py ./app/services/
+     app/services/ingest.py app/services/lifetimes.py app/services/scoring.py \
+     app/services/ssrf.py app/services/tls.py ./app/services/
 COPY quantsiv_scanner/ ./quantsiv_scanner/
 RUN adduser --disabled-password --gecos '' scanner
 USER scanner

@@ -12,7 +12,7 @@ from app import auth
 from app.api import router
 from app.config import configure_logging, get_settings
 from app.queue import close_queue
-from app.routers import legal, tokens, v1, webhooks
+from app.routers import domains, legal, tokens, v1, webhooks
 from app.security import security_headers
 
 
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(v1.router)
     app.include_router(tokens.router)
+    app.include_router(domains.router)
     app.include_router(legal.router)
     return app
 

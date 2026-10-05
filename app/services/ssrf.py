@@ -4,10 +4,11 @@ Blocks loopback, RFC 1918, link-local (including 169.254.169.254), CGNAT, ULA, m
 IPv4-in-IPv6 forms, including NAT64 `64:ff9b::a9fe:a9fe`. Public addresses pass.
 
 Call it via `asyncio.to_thread(resolve_scan_target, host)`, then connect to the returned IP with
-SNI set to `host` (e.g. `sslyze.ServerNetworkLocation(hostname=host, port=443,
-ip_address=vetted_ip)`), so DNS cannot be rebound between the check and the connection.
-TLS scanning is not built yet; when it is, it must scan only DNS-TXT-verified domains through
-this guard, and unverified hosts get at most one lightweight handshake.
+SNI set to `host` (`app.services.tls.probe`), so DNS cannot be rebound between the check and the
+connection.
+`app.services.tls.probe_verified_endpoint` is the only hosted caller, and `worker.scan_tls`
+calls it only for domains verified by DNS TXT record (`app.services.domains`). Unverified
+domains are not contacted at all, which is stricter than the audit's one-handshake allowance.
 """
 
 import ipaddress
@@ -43,12 +44,17 @@ def is_public_ip(value: str) -> bool:
 _BLOCKED_SUFFIXES = (".internal", ".railway.internal", ".local", ".localhost", ".lan")
 
 
+def is_blocked_name(host: str) -> bool:
+    """Internal names that are never resolved, whatever they would resolve to."""
+    name = host.lower().rstrip(".")
+    return name == "localhost" or name.endswith(_BLOCKED_SUFFIXES)
+
+
 def resolve_scan_target(host: str, port: int = 443) -> str:
     """Return a vetted public IP; connect to it with SNI=host so DNS cannot be rebound."""
     if port != 443:
         raise ValueError("only port 443 is scanned")
-    name = host.lower().rstrip(".")
-    if name == "localhost" or name.endswith(_BLOCKED_SUFFIXES):
+    if is_blocked_name(host):
         raise ValueError(f"{host} is an internal name")
     ips = sorted({info[4][0] for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)})
     if not ips or not all(is_public_ip(ip) for ip in ips):

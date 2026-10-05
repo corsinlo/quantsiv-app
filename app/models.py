@@ -103,7 +103,7 @@ class Finding(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scan_id: Mapped[int] = mapped_column(ForeignKey("scans.id", ondelete="CASCADE"), index=True)
-    file_path: Mapped[str | None] = mapped_column(Text)  # NULL for TLS findings
+    file_path: Mapped[str | None] = mapped_column(Text)  # tls://host:443 for TLS findings
     line_number: Mapped[int | None] = mapped_column(Integer)
     algorithm: Mapped[str] = mapped_column(String(50))
     algorithm_family: Mapped[str | None] = mapped_column(String(20))
@@ -154,6 +154,27 @@ class TlsScan(Base):
     tls_version: Mapped[str | None] = mapped_column(String(20))
     quantum_safe: Mapped[bool] = mapped_column(Boolean, default=False)
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Domain(Base):
+    """A domain an installation may have scanned over TLS from the control plane (A17). Scanned
+    only once `verified_at` is set by a DNS TXT record check, which is repeated before each scan."""
+
+    __tablename__ = "domains"
+    __table_args__ = (UniqueConstraint("installation_id", "domain"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    installation_id: Mapped[int] = mapped_column(
+        ForeignKey("installations.id", ondelete="CASCADE"), index=True
+    )
+    domain: Mapped[str] = mapped_column(String(140))
+    verification_token: Mapped[str] = mapped_column(String(64))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # How long the data this endpoint protects must stay confidential (HNDL track), if declared
+    confidentiality_lifetime_years: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    installation: Mapped[Installation] = relationship()
 
 
 class ApiToken(Base):
