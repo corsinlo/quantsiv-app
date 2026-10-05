@@ -1,6 +1,7 @@
 """Walk a checkout and apply the rules. Pure Python, no network, bounded work per file."""
 
 import os
+import re
 from dataclasses import asdict, dataclass, replace
 
 from quantsiv_scanner.rules import RULES, Rule, pqc_primitive
@@ -36,6 +37,18 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_LINE_CHARS = 4000  # minified or generated lines are skipped, not regex-scanned
 MAX_FILES = 200_000
 SPECIAL_NAMES = {"dockerfile": "dockerfile", "makefile": "makefile", "jenkinsfile": "groovy"}
+# Lines that only name an algorithm without using it: imports and type-only mentions. A rule
+# needs a call, a constructor or a command to count, so these are skipped before matching.
+IMPORT_LINE = re.compile(
+    r"^\s*(?:from\s+\S+\s+import\b|import\b|use\s+\S+;|using\s+\S+;|require\s*\(?['\"])"
+)
+# Test code is reported, but flagged, so reports and gates can treat it separately (CBOMkit
+# excludes it by default; we keep it, since test keys do get copied into production)
+TEST_PATH = re.compile(
+    r"(^|/)(tests?|spec|__tests__|testdata|fixtures?)(/|$)|(^|/)test_[^/]*$|_test\.go$|"
+    r"\.(test|spec)\.[jt]sx?$|Tests?\.(java|kt|cs|rs|rb|php)$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -51,6 +64,7 @@ class Finding:
     quantum_safe: bool
     raw_match: str
     source: str = "quantsiv-rules"
+    test_code: bool = False
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -84,8 +98,9 @@ def scan_text(text: str, rel_path: str, kind: str | None = None) -> list[Finding
     if not rules:
         return []
     found: dict[tuple[int, str], Finding] = {}
+    in_test = bool(TEST_PATH.search(rel_path))
     for number, line in enumerate(text.splitlines(), start=1):
-        if len(line) > MAX_LINE_CHARS or not line.strip():
+        if len(line) > MAX_LINE_CHARS or not line.strip() or IMPORT_LINE.match(line):
             continue
         for rule in rules:
             if rule.needle and rule.needle not in line:
@@ -108,6 +123,7 @@ def scan_text(text: str, rel_path: str, kind: str | None = None) -> list[Finding
                 confidence=rule.confidence,
                 quantum_safe=rule.quantum_safe,
                 raw_match=line.strip()[:200],
+                test_code=in_test,
             )
             key = (number, algorithm)
             current = found.get(key)

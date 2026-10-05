@@ -104,12 +104,31 @@ signatures:
 Plus, when CBOMkit-action runs first: Java (JCA, BouncyCastle), Python (pyca/cryptography) and Go
 (`crypto/*`) with CBOMkit's own detection.
 
+## Status (2026-10-05): what is proven and what is not
+
+| Claim | Evidence |
+| --- | --- |
+| Scans a real checkout offline and writes CBOM, SARIF and report | Run on public repositories (`jpadilla/pyjwt`, `golang-jwt/jwt`): 2-4 s each; CI runs it under `unshare -n` and in the image with `--network none` |
+| Hosted scan end to end | Tested with a faked clone and the real engine in the sandbox; not yet run against a registered GitHub App on a deployed instance |
+| CBOMkit merge | Tested against a CBOMkit-shaped fixture; the action publishes no sample, so run it once on a real repository before quoting the integration |
+| Scoring thresholds | Quantsiv's own documented rule (`app/services/scoring.py`), not a regulatory requirement; review them |
+| Scanner image, Marketplace action | Built from this repo; not published (stealth) |
+| Eval harness | Exists; no results |
+
 ## Limits, stated plainly
 
 - The rules are pattern matching on source lines, without type resolution. They miss aliased
   imports, dynamic dispatch, and configuration kept outside code (for example a TLS cipher list in
-  a load balancer), and they can report test fixtures or comments. Each finding carries a
-  confidence between 0.6 and 0.9 for that reason.
+  a load balancer), and they can report comments. Import and type-only lines are skipped; a rule
+  needs a call, a constructor or a command. Each finding carries a confidence between 0.6 and 0.9
+  for that reason.
+- Test code is reported but flagged (`quantsiv:test-code` in the CBOM, "(test)" in the report),
+  because test keys do get copied into production; the gate treats it like any other code.
+- **Languages not covered by the rules:** C and C++ (OpenSSL, mbedTLS, libsodium, wolfSSL),
+  Swift and Objective-C (CryptoKit, CommonCrypto), Dart, Elixir/Erlang, Perl, Scala beyond JCA
+  calls, and infrastructure configuration (Terraform, Kubernetes TLS settings). Key and
+  certificate files (`.pem`, `.p12`, `.jks`) are not parsed. C/C++ and certificate files are the
+  largest gaps for firmware and infrastructure estates.
 - Dependencies are not scanned: a vulnerable algorithm inside a library you call through a
   wrapper is invisible unless the call itself matches a rule.
 - Directories named `node_modules`, `vendor`, `dist`, `build`, `target` and dot-directories are

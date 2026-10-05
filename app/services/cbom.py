@@ -20,6 +20,7 @@ LIFETIME_PROPERTY = "quantsiv:confidentiality-lifetime-years"
 TRACK_PROPERTY = "quantsiv:track"
 SOURCE_PROPERTY = "quantsiv:source"
 EXCEPTION_PROPERTY = "quantsiv:exception"
+TEST_CODE_PROPERTY = "quantsiv:test-code"
 
 PRIMITIVE = {
     "signature": CryptoPrimitive.SIGNATURE,
@@ -81,6 +82,8 @@ def build_cbom(
             properties.append(Property(name=LIFETIME_PROPERTY, value=str(f["lifetime_years"])))
         if f.get("source"):
             properties.append(Property(name=SOURCE_PROPERTY, value=str(f["source"])))
+        if f.get("test_code"):
+            properties.append(Property(name=TEST_CODE_PROPERTY, value="true"))
         if f.get("exception"):
             exc = f["exception"]
             properties.append(

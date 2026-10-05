@@ -279,7 +279,7 @@ RULES: list[Rule] = [
     Rule(
         "py-pyca-x25519",
         PYTHON,
-        R(r"\bX25519PrivateKey\b"),
+        R(r"\bX25519PrivateKey\.(?:generate|from_private_bytes)\("),
         "X25519",
         "key-agree",
         "X25519 key agreement",
@@ -290,7 +290,7 @@ RULES: list[Rule] = [
     Rule(
         "py-pyca-x448",
         PYTHON,
-        R(r"\bX448PrivateKey\b"),
+        R(r"\bX448PrivateKey\.(?:generate|from_private_bytes)\("),
         "X448",
         "key-agree",
         "X448 key agreement",
@@ -301,7 +301,7 @@ RULES: list[Rule] = [
     Rule(
         "py-pyca-ed25519",
         PYTHON,
-        R(r"\bEd25519PrivateKey\b"),
+        R(r"\bEd25519PrivateKey\.(?:generate|from_private_bytes)\("),
         "Ed25519",
         "signature",
         "Ed25519 signature",
@@ -312,7 +312,7 @@ RULES: list[Rule] = [
     Rule(
         "py-pyca-ed448",
         PYTHON,
-        R(r"\bEd448PrivateKey\b"),
+        R(r"\bEd448PrivateKey\.(?:generate|from_private_bytes)\("),
         "Ed448",
         "signature",
         "Ed448 signature",
