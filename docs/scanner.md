@@ -98,8 +98,12 @@ signatures:
 | C# | `RSA.Create`, `RSACryptoServiceProvider`, `ECDsa.Create`, `ECDiffieHellman.Create` |
 | Rust | `openssl::rsa`, the `rsa` crate, `ring::signature`, `x25519_dalek`, `ed25519_dalek` |
 | Ruby, PHP | `OpenSSL::PKey::RSA`, `OpenSSL::PKey::EC`, `openssl_pkey_new` |
+| C, C++, Objective-C | OpenSSL 1.1 and 3.x (`RSA_generate_key_ex`, `EVP_PKEY_CTX_new_id`, `EVP_PKEY_Q_keygen`, `EVP_RSA_gen`, `EVP_EC_gen`, `EC_KEY_new_by_curve_name`, `RSA_public_encrypt`, `RSA_sign`, `ECDSA_sign`, `ECDH_compute_key`, `DH_*`), mbedTLS (`mbedtls_rsa_gen_key`, `MBEDTLS_PK_RSA`, `MBEDTLS_ECP_DP_*`, `mbedtls_ecdsa_*`, `mbedtls_ecdh_*`, `mbedtls_dhm_*`), libsodium (`crypto_box`, `crypto_kx`, `crypto_scalarmult`, `crypto_sign`), wolfCrypt (`wc_MakeRsaKey`, `wc_ecc_make_key`, `wc_ecc_sign_hash`, `wc_ecc_shared_secret`, `wc_curve25519_*`, `wc_ed25519_*`), Windows CNG (`BCRYPT_*_ALGORITHM`) |
+| Swift, Objective-C | CryptoKit (`P256/P384/P521/Curve25519.Signing`, `.KeyAgreement`), swift-crypto (`_RSA.Signing`, `_RSA.Encryption`), Security framework (`kSecAttrKeyTypeRSA`, `kSecAttrKeyTypeECSECPrimeRandom`, `SecKeyAlgorithm` constants) |
+| Dart, Flutter | pointycastle (`RSAKeyGenerator`, `ECKeyGenerator`, `ECCurve_*`, `RSAEngine`, `RSASigner`, `ECDSASigner`), package:cryptography (`X25519`, `Ed25519`, `Ecdsa.p256`, `Ecdh.p256`, `RsaPss`), fast_rsa (`RSA.generate`) |
 | Shell, Dockerfile, Makefile, CI YAML | `openssl genrsa`, `openssl genpkey`, `openssl ecparam`, `ssh-keygen -t`, `keytool -keyalg` |
 | Any of the above | Post-quantum names: ML-KEM/Kyber, ML-DSA/Dilithium, SLH-DSA/SPHINCS+ |
+| Key and certificate files | PEM blocks in `.pem`, `.crt`, `.cer`, `.key`, `.pub`, `.csr`, `.p8` files and embedded in any scanned text (certificates with their expiry, certificate requests, public keys, unencrypted PKCS#8, PKCS#1, SEC1 and OpenSSH private keys), and OpenSSH public key lines in `.pub`, `authorized_keys` and `known_hosts`. Only the algorithm and key size are recorded, never the material |
 
 Plus, when CBOMkit-action runs first: Java (JCA, BouncyCastle), Python (pyca/cryptography) and Go
 (`crypto/*`) with CBOMkit's own detection.
@@ -124,16 +128,45 @@ Plus, when CBOMkit-action runs first: Java (JCA, BouncyCastle), Python (pyca/cry
   for that reason.
 - Test code is reported but flagged (`quantsiv:test-code` in the CBOM, "(test)" in the report),
   because test keys do get copied into production; the gate treats it like any other code.
-- **Languages not covered by the rules:** C and C++ (OpenSSL, mbedTLS, libsodium, wolfSSL),
-  Swift and Objective-C (CryptoKit, CommonCrypto), Dart, Elixir/Erlang, Perl, Scala beyond JCA
-  calls, and infrastructure configuration (Terraform, Kubernetes TLS settings). Key and
-  certificate files (`.pem`, `.p12`, `.jks`) are not parsed. C/C++ and certificate files are the
-  largest gaps for firmware and infrastructure estates.
+- **Languages not covered by the rules:** Elixir/Erlang, Perl, Scala beyond JCA calls, and
+  infrastructure configuration (Terraform, Kubernetes TLS settings). In C and C++ the rules name
+  the five libraries above; a vendored or in-house primitive (for example a bare `bn_*` or
+  `mpi_*` implementation in firmware) does not match. Key and certificate files (`.pem`, `.p12`,
+  `.jks`) are parsed for PEM content only: DER, PKCS#12 and Java keystores are binary and
+  skipped, and a PKCS#8 encrypted private key has no readable algorithm. A private key committed
+  to a repository is reported as an asset (its header line, never its material); whether it
+  belongs there is a secret-hygiene question this tool does not answer.
 - Dependencies are not scanned: a vulnerable algorithm inside a library you call through a
   wrapper is invisible unless the call itself matches a rule.
 - Directories named `node_modules`, `vendor`, `dist`, `build`, `target` and dot-directories are
   skipped, as are symlinks, binary files, files over 2 MB and lines over 4,000 characters.
-- TLS endpoints are not scanned by this tool.
+- TLS endpoints are probed only when you name them (`--tls HOST`, below). One handshake per host
+  shows the protocol version, cipher suite and certificate (algorithm, key size, expiry). The
+  key-exchange group, which decides harvest-now-decrypt-later exposure, is read directly only on
+  Python 3.14 or newer; on older runtimes the probe makes a second handshake offering only
+  X25519MLKEM768 to learn whether the server accepts a hybrid exchange, and when even that is
+  not possible it says "group not observable" instead of guessing. No certificate chain is
+  validated: an expired or self-signed certificate is still inventory. Cipher-suite lists and
+  protocol downgrade behaviour are not enumerated (that is a full scan, which Quantsiv does not
+  claim).
+
+## TLS endpoints
+
+```bash
+quantsiv scan . --tls api.example.com --tls www.example.com
+```
+
+`--tls HOST` (repeatable, port 443 only) adds one handshake per host to the same CBOM. A
+finding is recorded for the endpoint's key exchange (`kem` when a hybrid group is used,
+`key-agree` for a classical group, `pke` for TLS 1.2 RSA key transport) and for the
+certificate's public key (`signature` track). Each is located at `tls://host:443`, so the gate
+and the estate diff treat endpoints separately. The command runs from your network and probes
+only what you name; it is your own assertion that you may test those hosts. A host that does not
+resolve or answer is reported on stderr and skipped.
+
+The control plane's hosted variant (the "TLS domains" page) is stricter: it contacts a domain
+only after you publish a DNS TXT record, re-checks the record before every scan, resolves
+through the SSRF guard and connects to the vetted address with SNI. See `docs/hosted-scanning.md`.
 
 ## Hosted scans
 

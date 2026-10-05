@@ -7,3 +7,5 @@ httpx
 jinja2==3.1.6
 # Read-only policy MCP server, `quantsiv mcp` (WP10, D7). Official SDK, pinned.
 mcp==2.3.0
+# Key and certificate files parsed for algorithm and size only (quantsiv_scanner/keyfiles.py)
+cryptography>=50

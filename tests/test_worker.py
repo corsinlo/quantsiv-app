@@ -14,7 +14,7 @@ from tests.github_mock import FakeGitHub
 
 def test_worker_settings_register_the_jobs():
     names = {f.__name__ for f in worker.WorkerSettings.functions}
-    assert names == {"scan_repository", "handle_github_event", "delete_account"}
+    assert names == {"scan_repository", "scan_tls", "handle_github_event", "delete_account"}
     assert worker.WorkerSettings.on_startup is worker.startup
     assert worker.SCAN_TIMEOUT < worker.WorkerSettings.job_timeout
 

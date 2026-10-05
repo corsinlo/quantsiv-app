@@ -20,7 +20,7 @@ order.
    `SELECT id, github_installation_id FROM installations WHERE user_id = (SELECT id FROM users WHERE github_user_id = :id);`
 2. **Database** (the job does this; by hand, in this order, per installation):
    `findings`, `tls_scans`, `cbom_snapshots`, `share_links` (per scan), then `audit_events`,
-   `scans`, `api_tokens`, `installations`; finally the `users` row.
+   `scans`, `api_tokens`, `domains`, `installations`; finally the `users` row.
    By hand: `python -c "import asyncio; from app import worker; ctx={}; asyncio.run(worker.startup(ctx)); print(asyncio.run(worker.delete_account(ctx, GITHUB_USER_ID)))"`
    with `DATABASE_URL` set.
 3. **Billing** (once billing exists, D5): cancel the subscription and delete the customer at the

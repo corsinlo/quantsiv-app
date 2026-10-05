@@ -24,6 +24,7 @@ from app.models import (
     ApiToken,
     AuditEvent,
     CbomSnapshot,
+    Domain,
     Finding,
     Installation,
     Scan,
@@ -36,12 +37,14 @@ from app.models import (
 )
 from app.services.cbom import build_cbom
 from app.services.clone import clone_repository
+from app.services.domains import check_verification
 from app.services.errors import ScanError
 from app.services.github import GitHubApp
 from app.services.lifetimes import Lifetimes, read_lifetimes
 from app.services.results import finding_rows, score
 from app.services.sandbox import run_limited
 from app.services.scoring import severity_score
+from app.services.tls import findings_from_probe, probe_verified_endpoint
 
 logger = logging.getLogger(__name__)
 configure_logging()
@@ -179,6 +182,107 @@ async def scan_repository(
         return scan.id
 
 
+async def scan_tls(
+    ctx: dict, installation_id: int, domain: str, probe=probe_verified_endpoint, lookup=None
+) -> int | None:
+    """One TLS handshake with a domain the installation has verified (A17).
+
+    The DNS TXT record is checked again first, so a domain that changed hands or lost its record
+    stops being scanned, and an unverified domain is never contacted. The connection goes through
+    the SSRF guard to a vetted IP. Returns the scan id, or None when nothing was scanned.
+    """
+    async with ctx["sessionmaker"]() as db:
+        installation = await db.scalar(
+            select(Installation).where(Installation.github_installation_id == installation_id)
+        )
+        row = (
+            await db.scalar(
+                select(Domain).where(
+                    Domain.installation_id == installation.id, Domain.domain == domain
+                )
+            )
+            if installation
+            else None
+        )
+        if row is None or row.verified_at is None:
+            logger.warning(
+                "TLS scan refused: domain not verified for installation %s", installation_id
+            )
+            return None
+        scan = Scan(
+            installation_id=installation.id,
+            repo_full_name=domain,
+            scan_type="tls",
+            triggered_by="manual",
+            status=ScanStatus.RUNNING,
+            findings=[],  # loaded-empty, so attaching results needs no lazy load
+            tls_scans=[],
+            cbom=None,
+        )
+        db.add(scan)
+        await db.commit()
+        try:
+            async with asyncio.timeout(60):
+                still_verified = await asyncio.to_thread(
+                    check_verification,
+                    domain,
+                    row.verification_token,
+                    *([lookup] if lookup else []),
+                )
+                if not still_verified:
+                    row.verified_at = None
+                    raise ScanError("The DNS verification record is no longer published.")
+                result = await asyncio.to_thread(probe, domain)
+            if result.error:
+                raise ScanError(result.error)
+            raw = findings_from_probe(result)
+            for finding in raw:
+                if row.confidentiality_lifetime_years is not None:
+                    finding["lifetime_years"] = row.confidentiality_lifetime_years
+            scored = score(raw, domain, Lifetimes(), utcnow().date())
+            scan.findings = finding_rows(scored, installation)
+            scan.tls_scans = [
+                TlsScan(
+                    domain=domain,
+                    ip_address=result.ip_address,
+                    port=result.port,
+                    cert_subject=result.cert_subject,
+                    cert_expiry=result.cert_expiry,
+                    cert_algorithm=result.cert_algorithm,
+                    cert_key_bits=result.cert_key_bits,
+                    cipher_suites=[result.cipher_suite] if result.cipher_suite else None,
+                    tls_version=result.tls_version,
+                    quantum_safe=bool(result.pqc_key_exchange),
+                )
+            ]
+            cbom_input = [
+                {
+                    **f,
+                    "primitive": v.primitive,
+                    "track": v.track,
+                    "lifetime_years": v.lifetime_years,
+                }
+                for v, f in scored
+            ]
+            scan.cbom = CbomSnapshot(
+                cbom_json=json.loads(build_cbom(cbom_input, domain)),
+                risk_score=severity_score([v.severity for v, _ in scored]),
+                producer="Quantsiv hosted TLS scan",
+            )
+            scan.status = ScanStatus.DONE
+        except ScanError as exc:
+            scan.status, scan.error_message = ScanStatus.FAILED, str(exc)
+        except TimeoutError:
+            scan.status, scan.error_message = ScanStatus.FAILED, "The scan timed out."
+        except Exception:
+            logger.exception("TLS scan %s failed", scan.id)
+            scan.status, scan.error_message = ScanStatus.FAILED, "Internal error"
+        finally:
+            scan.completed_at = utcnow()
+            await db.commit()
+        return scan.id
+
+
 async def handle_github_event(ctx: dict, event: str, payload: dict) -> str:
     """Process a verified GitHub webhook (A12, A13). Returns what was done, for the job result.
 
@@ -258,6 +362,7 @@ async def purge_installation(ctx: dict, github_installation_id: int | None) -> i
         await db.execute(delete(AuditEvent).where(AuditEvent.installation_id == installation.id))
         await db.execute(delete(Scan).where(Scan.installation_id == installation.id))
         await db.execute(delete(ApiToken).where(ApiToken.installation_id == installation.id))
+        await db.execute(delete(Domain).where(Domain.installation_id == installation.id))
         await db.delete(installation)
         await db.commit()
         logger.info("purged installation %s (%d scans)", github_installation_id, len(scans))
@@ -288,7 +393,7 @@ async def delete_account(ctx: dict, github_user_id: int) -> dict:
 
 
 class WorkerSettings:
-    functions: ClassVar[list] = [scan_repository, handle_github_event, delete_account]
+    functions: ClassVar[list] = [scan_repository, scan_tls, handle_github_event, delete_account]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

@@ -220,3 +220,52 @@ def test_there_is_no_token_flag():
     # Tokens travel in the environment only, never in argv (CLAUDE.md, Security)
     with pytest.raises(SystemExit):
         cli.build_parser().parse_args(["scan", ".", "--token", "x"])
+
+
+def test_tls_flag_adds_probe_findings_to_the_cbom(tmp_path, monkeypatch, capsys):
+    import json
+
+    from app.services.tls import TlsProbe
+    from quantsiv_scanner import cli
+
+    def fake_probe(host):
+        if host == "down.example":
+            return TlsProbe(domain=host, ip_address=None, error="Name does not resolve")
+        return TlsProbe(
+            domain=host,
+            ip_address="203.0.113.7",
+            tls_version="TLSv1.3",
+            cipher_suite="TLS_AES_256_GCM_SHA384",
+            key_exchange_group="x25519",
+            pqc_key_exchange=False,
+            cert_algorithm="EC",
+            cert_key_bits=256,
+        )
+
+    monkeypatch.setattr("app.services.tls.probe_endpoint", fake_probe)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "a.py").write_text("rsa.generate_private_key(public_exponent=65537, key_size=2048)\n")
+    out = tmp_path / "out"
+    code = cli.main(
+        [
+            "scan",
+            str(repo),
+            "--out",
+            str(out),
+            "--repository",
+            "o/r",
+            "--tls",
+            "Api.Example",
+            "--tls",
+            "down.example",
+        ]
+    )
+    assert code == 0
+    assert "TLS probe of down.example: Name does not resolve" in capsys.readouterr().err
+    components = json.loads((out / "cbom.json").read_text())["components"]
+    assert {c["name"] for c in components} >= {"RSA-2048", "X25519-256", "EC-256"}
+    locations = {
+        o["location"] for c in components for o in (c.get("evidence") or {}).get("occurrences", [])
+    }
+    assert "tls://api.example:443" in locations

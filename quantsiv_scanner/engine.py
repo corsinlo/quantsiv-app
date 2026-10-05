@@ -147,12 +147,30 @@ def iter_files(root: str):
             path = os.path.join(dirpath, name)
             if os.path.islink(path) or not os.path.isfile(path):
                 continue
-            if not rules_for(file_kind(path)):
+            if not rules_for(file_kind(path)) and not is_key_file(path):
                 continue
             count += 1
             if count > MAX_FILES:
                 return
             yield path, os.path.relpath(path, root).replace(os.sep, "/")
+
+
+def is_key_file(path: str) -> bool:
+    from quantsiv_scanner.keyfiles import KEY_FILE_KINDS, SSH_FILE_NAMES
+
+    return file_kind(path) in KEY_FILE_KINDS or os.path.basename(path) in SSH_FILE_NAMES
+
+
+def scan_key_material(text: str, rel_path: str) -> list[Finding]:
+    """PEM blocks in any text file, and OpenSSH public key lines in SSH key files."""
+    from quantsiv_scanner.keyfiles import SSH_FILE_NAMES, scan_pem, scan_ssh_keys
+
+    found: list[Finding] = []
+    if "-----BEGIN " in text:
+        found.extend(scan_pem(text, rel_path))
+    if file_kind(rel_path) == "pub" or os.path.basename(rel_path) in SSH_FILE_NAMES:
+        found.extend(scan_ssh_keys(text, rel_path))
+    return found
 
 
 def scan_tree(root: str) -> tuple[list[Finding], int]:
@@ -170,6 +188,8 @@ def scan_tree(root: str) -> tuple[list[Finding], int]:
         if b"\0" in data[:8192]:
             continue  # binary
         scanned += 1
-        findings.extend(scan_text(data.decode("utf-8", errors="replace"), rel))
+        text = data.decode("utf-8", errors="replace")
+        findings.extend(scan_text(text, rel))
+        findings.extend(scan_key_material(text, rel))
     findings.sort(key=lambda f: (f.file_path, f.line_number, f.algorithm))
     return findings, scanned

@@ -27,3 +27,5 @@ asyncpg
 aiosqlite
 # quantsiv.yml: declared data lifetimes (WP6)
 pyyaml
+# DNS TXT check for domain verification (hosted TLS scans, A17)
+dnspython

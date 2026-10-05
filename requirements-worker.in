@@ -1,4 +1,4 @@
-# Worker service (separate image; sslyze caps cryptography<47, A07). Lock with:
+# Worker service (separate image). Lock with:
 #   uv pip compile --universal --python-version 3.12 --generate-hashes requirements-worker.in -o requirements-worker.txt
 arq==0.28.0
 SQLAlchemy==2.0.23
@@ -6,8 +6,10 @@ PyGithub==2.3.0
 PyJWT==2.15.1
 cyclonedx-python-lib[json-validation]==11.12.0
 pydantic-settings==2.15.0
-sslyze==6.3.1
 asyncpg
 aiosqlite
 # quantsiv.yml: declared data lifetimes (WP6)
 pyyaml
+# DNS TXT check for domain verification (hosted TLS scans, A17)
+dnspython
+cryptography>=50

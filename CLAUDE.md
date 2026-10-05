@@ -7,10 +7,11 @@ The marketing site is the separate, **public** repo `quantsiv-landing`. The stra
 `quantsiv.md` (narrative, delivery model, pricing proposal) and `quantsiv_mvp_spec.md` (build
 spec, revision 1.1).
 
-## Current state (2026-10-04)
+## Current state (2026-10-05)
 
-WP0-WP7, WP9 and WP10 have landed (PRs #2-#11), and WP8's buildable half (legal routes as
-placeholders, erasure) in #12; WP8's content waits for D4/D5. D1, D2 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
+WP0-WP7, WP9 and WP10 have landed (PRs #2-#11), WP8's buildable half (legal routes as
+placeholders, erasure) in #12 (its content waits for D4/D5), and WP11 (Phase 1 coverage: C/C++,
+Swift and Dart rules, key and certificate files, TLS probe) in #15. D1, D2 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
 scans public repositories with Quantsiv's own rules engine, takes CBOM uploads from any CI, and
 gates them on a per-repository policy**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
@@ -21,11 +22,19 @@ gates them on a per-repository policy**:
 - a hosted scan gets a down-scoped token, refuses private or oversized repos, clones with the
   hardened clone, revokes the token, then runs `quantsiv_scanner` as a separate limited process
   (`services/sandbox.py`). Hosted-scanning rules: `docs/hosted-scanning.md`;
+- TLS: `app/services/tls.py` makes one handshake (version, cipher, certificate key, key-exchange
+  group where observable) and turns it into findings located at `tls://host:443`. Hosted, it runs
+  only for domains verified by DNS TXT record (`services/domains.py`, `/dashboard/domains`,
+  `worker.scan_tls`), re-checked before each scan, always through the SSRF guard. In the CLI,
+  `quantsiv scan --tls HOST` probes only hosts named on the command line. It is a probe, not a
+  cipher-suite scan: never call it a full TLS assessment. Key and certificate files are parsed
+  for algorithm and size only (`quantsiv_scanner/keyfiles.py`), never stored;
 - the engine (D2) is `quantsiv_scanner/`: pattern rules per language (`rules.py`), a walker
   (`engine.py`), a CLI (`cli.py`) that writes CBOM, SARIF and report offline and uploads only
   with `QUANTSIV_TOKEN`. CBOMkit is merged as data (`cbom/cbom.json`), never wrapped. Coverage
   and limits: `docs/scanner.md`. The scanner imports only the pure modules of `app/services/`
-  (cbom, scoring, lifetimes, ingest, errors): never import `app.models`, `app.db` or `app.config`
+  (cbom, scoring, lifetimes, ingest, errors, ssrf, tls; the Dockerfile's scanner stage copies
+  exactly these, and `tests/scanner/test_image_contents.py` enforces it): never import `app.models`, `app.db` or `app.config`
   from code the scanner uses, and keep `requirements-scanner.in` minimal;
 - CI uploads work today: `POST /api/v1/cbom?repository=owner/name` with an org token
   (`/dashboard/tokens`) takes any schema-valid CycloneDX 1.6 CBOM (e.g. from CBOMkit), records
@@ -180,7 +189,9 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
   - Never copy code, strategy, pricing or audit material into `quantsiv-landing`. That repo is
     public, and GitHub Pages publishes everything in it.
   - Don't publish legal pages until D4 (legal identity) is answered.
-- **Scope.** Landing-page work happens in `quantsiv-landing`, not here.
+- **Scope.** Landing-page work happens in `quantsiv-landing`, not here. The approved claims,
+  the not-yet-true list and the landing comparison are in `docs/feature-claims.md`; check any
+  landing or README wording against it, and keep it current when a work package lands.
 - **Encoding.** Use UTF-8 with no BOM. Windows tooling previously wrote UTF-16 files into this
   repo, and that breaks Python. The repository stores LF; only Windows checkouts show CRLF,
   through `core.autocrlf`. WP0's `.gitattributes` makes LF explicit. Shell scripts must stay LF.

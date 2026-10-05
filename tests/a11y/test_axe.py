@@ -104,7 +104,12 @@ def _open(page, url: str) -> None:
 
 
 PAGES = (
-    [(False, "/dashboard"), (True, "/dashboard"), (False, "/dashboard/tokens")]
+    [
+        (False, "/dashboard"),
+        (True, "/dashboard"),
+        (False, "/dashboard/tokens"),
+        (False, "/dashboard/domains"),
+    ]
     + [
         (False, f"/legal/{slug}")
         for slug in ("privacy", "terms", "cookies", "notice", "data-deletion")

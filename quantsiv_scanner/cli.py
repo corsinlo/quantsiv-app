@@ -2,7 +2,8 @@
 
 - `quantsiv scan`: scan a checkout offline and write cbom.json, findings.sarif, report.json and
   report.md. Upload is opt-in (`--upload`, token in QUANTSIV_TOKEN, never on the command line).
-  `--json` prints the raw engine output for the hosted worker.
+  `--json` prints the raw engine output for the hosted worker. `--tls HOST` adds one TLS
+  handshake per named host (port 443) to the same CBOM.
 - `quantsiv gate`: the policy verdict on the delta between two CBOMs, offline, with the
   explainer's PR comment, check-run text and SARIF.
 - `quantsiv mcp`: the read-only policy MCP server over stdio (WP10).
@@ -72,7 +73,22 @@ def merge_cbomkit(findings: list[dict], cbomkit_path: str) -> tuple[list[dict], 
     return merged, ingest.producer(doc)
 
 
-def run_scan(path: str, cbomkit: str | None) -> dict:
+def probe_hosts(hosts: list[str], probe=None) -> tuple[list[dict], list[dict]]:
+    """One TLS handshake per host named on the command line (your own endpoints, from your own
+    network). Returns (findings, probe summaries). Nothing is scanned that was not named."""
+    from app.services.tls import findings_from_probe, probe_endpoint
+
+    probe = probe or probe_endpoint
+    findings: list[dict] = []
+    summaries: list[dict] = []
+    for host in hosts:
+        result = probe(host.strip().lower())
+        summaries.append(result.as_dict())
+        findings.extend(findings_from_probe(result))
+    return findings, summaries
+
+
+def run_scan(path: str, cbomkit: str | None, tls_hosts: list[str] | None = None) -> dict:
     """The engine step: rules, then CBOMkit's CBOM if present. No scoring here."""
     root = os.path.abspath(path)
     if not os.path.isdir(root):
@@ -86,7 +102,11 @@ def run_scan(path: str, cbomkit: str | None) -> dict:
             raw, producer = merge_cbomkit(raw, cbomkit_path)
         except ingest.InvalidCbom as exc:
             raise ScanError(f"CBOMkit output {cbomkit_path}: {exc}") from None
-    return {"findings": raw, "files_scanned": scanned, "cbomkit": producer}
+    tls: list[dict] = []
+    if tls_hosts:
+        tls_findings, tls = probe_hosts(tls_hosts)
+        raw = raw + tls_findings
+    return {"findings": raw, "files_scanned": scanned, "cbomkit": producer, "tls": tls}
 
 
 def scored_results(raw: list[dict], repository: str, policy: Policy) -> list[dict]:
@@ -160,6 +180,14 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--out", default="quantsiv-out", help="output directory")
     scan.add_argument("--repository", help="owner/name; default from the CI environment")
     scan.add_argument("--cbomkit", help=f"CBOMkit CBOM to merge (default: {CBOMKIT_DEFAULT})")
+    scan.add_argument(
+        "--tls",
+        action="append",
+        default=[],
+        metavar="HOST",
+        help="also probe this host's TLS endpoint (port 443, one handshake; your own endpoints). "
+        "Repeat for several hosts",
+    )
     scan.add_argument(
         "--json", action="store_true", help="print raw findings as JSON, write nothing"
     )
@@ -250,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
             return run_gate(args)
         if args.command == "mcp":
             return run_mcp(args)
-        engine = run_scan(args.path, args.cbomkit)
+        engine = run_scan(args.path, args.cbomkit, args.tls)
         if args.json:
             print(json.dumps(engine))
             return 0
@@ -277,6 +305,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         with open(os.path.join(args.out, "cbom.json"), "w", encoding="utf-8") as handle:
             handle.write(cbom_text)
+        for probed in engine["tls"]:
+            if probed.get("error"):
+                print(
+                    f"quantsiv: TLS probe of {probed['domain']}: {probed['error']}", file=sys.stderr
+                )
         meta = {
             "repository": repository,
             "files_scanned": engine["files_scanned"],
