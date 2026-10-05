@@ -52,6 +52,29 @@ EXPECTED = [
     ("Dockerfile", 2, "X25519", None, 256),
     (".github-workflow.yml", 2, "RSA", None, 3072),
     ("tests/test_keys.py", 3, "RSA", None, 1024),
+    ("src/crypto.c", 5, "RSA", None, 2048),
+    ("src/crypto.c", 6, "X25519", "key-agree", 256),
+    ("src/crypto.c", 7, "EC", None, 256),
+    ("src/crypto.c", 8, "ECDSA", "signature", None),
+    ("src/crypto.c", 9, "RSA", "pke", None),
+    ("src/crypto.c", 10, "RSA", None, 3072),
+    ("src/crypto.c", 11, "EC", None, 384),
+    ("src/crypto.c", 12, "X25519", "key-agree", 256),
+    ("src/crypto.c", 13, "Ed25519", "signature", 256),
+    ("src/crypto.c", 14, "RSA", None, 4096),
+    ("src/crypto.c", 15, "ECDH", "key-agree", 256),
+    ("src/crypto.c", 16, "ML-KEM", "kem", 768),
+    ("src/Keys.swift", 2, "ECDSA", "signature", 256),
+    ("src/Keys.swift", 3, "X25519", "key-agree", 256),
+    ("src/Keys.swift", 4, "RSA", "signature", 2048),
+    ("src/Keys.swift", 5, "RSA", None, 3072),
+    ("src/Keys.swift", 6, "RSA", "pke", None),
+    ("src/keys.dart", 2, "RSA", None, 2048),
+    ("src/keys.dart", 4, "EC", None, 256),
+    ("src/keys.dart", 5, "ECDSA", "signature", None),
+    ("src/keys.dart", 6, "X25519", "key-agree", 256),
+    ("src/keys.dart", 7, "Ed25519", "signature", 256),
+    ("src/keys.dart", 8, "ECDH", "key-agree", 384),
 ]
 
 
@@ -132,6 +155,17 @@ def test_import_lines_are_not_assets():
     assert [(f.line_number, f.algorithm) for f in scan_text(text, "a.py")] == [(4, "Ed25519")]
     assert scan_text('import { generateKeyPairSync } from "crypto";', "a.ts") == []
     assert scan_text("use openssl::rsa::Rsa;", "a.rs") == []
+    assert scan_text("#include <openssl/rsa.h>", "a.c") == []
+
+
+def test_c_headers_and_objective_c_use_the_c_and_security_rules():
+    assert scan_text("EVP_RSA_gen(3072);", "keys.h")[0].key_size == 3072
+    objc = scan_text(
+        "SecKeyCreateRandomKey(@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA});", "k.m"
+    )
+    assert [(f.algorithm, f.rule_id) for f in objc] == [("RSA", "swift-seckey-rsa")]
+    cpp = scan_text('auto key = EVP_PKEY_Q_keygen(nullptr, nullptr, "ED25519");', "k.cpp")
+    assert [(f.algorithm, f.primitive, f.key_size) for f in cpp] == [("Ed25519", "signature", 256)]
 
 
 def test_test_code_is_flagged_not_hidden(found):

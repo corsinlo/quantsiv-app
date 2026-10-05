@@ -19,7 +19,7 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | Sign-in (GitHub OAuth), sessions, CSRF, security headers | Built; scans are scoped to the signed-in user in SQL | WP3, WP4 |
 | Data model (Postgres, Alembic) and ARQ worker | Built: installations are stored from webhooks, pushes create scan records. Every scan fails with "not available yet" until repository access (WP5) and the engine (D2) exist | WP4 |
 | Hosted scan pipeline for public repos (down-scoped token, hardened clone, size limit, limited engine process) | Built; runs the scanner below | WP5 |
-| Source scanning: Quantsiv rules for Python, JS/TS, Go, Java/Kotlin, C#, Rust, Ruby, PHP and shell/CI scripts, plus CBOMkit's CBOM merged when its action runs first | Built (pattern-based, limits in `docs/scanner.md`) | WP5, WP7 |
+| Source scanning: Quantsiv rules for Python, JS/TS, Go, Java/Kotlin, C#, Rust, Ruby, PHP, C/C++ (OpenSSL, mbedTLS, libsodium, wolfSSL, CNG), Swift/Objective-C, Dart and shell/CI scripts, plus CBOMkit's CBOM merged when its action runs first | Built (pattern-based, limits in `docs/scanner.md`) | WP5, WP7 |
 | TLS scanning (sslyze, verified domains only) | Planned; the SSRF guard it must use is built | later |
 | CycloneDX 1.6 CBOM output, per-scan download | Built and validated against the 1.6 schema; no scan produces findings until the engine (D2) exists | WP6 |
 | HNDL scoring from declared data lifetimes (`quantsiv.yml`), plus a separate signature-deadline track | Built; same caveat (D2) | WP6 |
