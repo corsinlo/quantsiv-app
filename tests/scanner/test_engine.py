@@ -75,6 +75,11 @@ EXPECTED = [
     ("src/keys.dart", 6, "X25519", "key-agree", 256),
     ("src/keys.dart", 7, "Ed25519", "signature", 256),
     ("src/keys.dart", 8, "ECDH", "key-agree", 384),
+    ("certs/server.crt", 1, "RSA", None, 2048),
+    ("certs/ec_public.pub", 1, "EC", None, 384),
+    ("certs/id_rsa.pub", 1, "RSA", None, 3072),
+    ("certs/id_ed25519.pub", 1, "Ed25519", "signature", 256),
+    ("certs/authorized_keys", 2, "Ed25519", "signature", 256),
 ]
 
 
@@ -172,3 +177,17 @@ def test_test_code_is_flagged_not_hidden(found):
     findings, _ = found
     assert findings[("tests/test_keys.py", 3, "RSA")].test_code is True
     assert findings[("src/app.py", 6, "RSA")].test_code is False
+
+
+def test_key_files_record_metadata_only(found):
+    findings, _ = found
+    cert = findings[("certs/server.crt", 1, "RSA")]
+    assert cert.rule_id == "file-pem"
+    assert cert.context_label.startswith("X.509 certificate, expires 20")
+    assert cert.raw_match == "-----BEGIN CERTIFICATE-----"
+    broken = findings[("certs/authorized_keys", 3, "RSA")]
+    assert broken.key_size is None  # not base64: the type is still an asset
+    assert not any(
+        f.file_path == "certs/ec_public.pub" and f.rule_id == "file-ssh-public-key"
+        for f in findings.values()
+    )

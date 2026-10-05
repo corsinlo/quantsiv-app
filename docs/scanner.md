@@ -103,6 +103,7 @@ signatures:
 | Dart, Flutter | pointycastle (`RSAKeyGenerator`, `ECKeyGenerator`, `ECCurve_*`, `RSAEngine`, `RSASigner`, `ECDSASigner`), package:cryptography (`X25519`, `Ed25519`, `Ecdsa.p256`, `Ecdh.p256`, `RsaPss`), fast_rsa (`RSA.generate`) |
 | Shell, Dockerfile, Makefile, CI YAML | `openssl genrsa`, `openssl genpkey`, `openssl ecparam`, `ssh-keygen -t`, `keytool -keyalg` |
 | Any of the above | Post-quantum names: ML-KEM/Kyber, ML-DSA/Dilithium, SLH-DSA/SPHINCS+ |
+| Key and certificate files | PEM blocks in `.pem`, `.crt`, `.cer`, `.key`, `.pub`, `.csr`, `.p8` files and embedded in any scanned text (certificates with their expiry, certificate requests, public keys, unencrypted PKCS#8, PKCS#1, SEC1 and OpenSSH private keys), and OpenSSH public key lines in `.pub`, `authorized_keys` and `known_hosts`. Only the algorithm and key size are recorded, never the material |
 
 Plus, when CBOMkit-action runs first: Java (JCA, BouncyCastle), Python (pyca/cryptography) and Go
 (`crypto/*`) with CBOMkit's own detection.
@@ -131,7 +132,10 @@ Plus, when CBOMkit-action runs first: Java (JCA, BouncyCastle), Python (pyca/cry
   infrastructure configuration (Terraform, Kubernetes TLS settings). In C and C++ the rules name
   the five libraries above; a vendored or in-house primitive (for example a bare `bn_*` or
   `mpi_*` implementation in firmware) does not match. Key and certificate files (`.pem`, `.p12`,
-  `.jks`) are not parsed.
+  `.jks`) are parsed for PEM content only: DER, PKCS#12 and Java keystores are binary and
+  skipped, and a PKCS#8 encrypted private key has no readable algorithm. A private key committed
+  to a repository is reported as an asset (its header line, never its material); whether it
+  belongs there is a secret-hygiene question this tool does not answer.
 - Dependencies are not scanned: a vulnerable algorithm inside a library you call through a
   wrapper is invisible unless the call itself matches a rule.
 - Directories named `node_modules`, `vendor`, `dist`, `build`, `target` and dot-directories are
