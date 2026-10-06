@@ -2,7 +2,7 @@
 
 Purpose: one list of what Quantsiv may say about itself, each line backed by merged code, and a
 line-by-line comparison with the public landing page (`quantsiv-landing`, `index.html`, checked
-2026-10-05). This file is for the **private** repo. Landing edits happen in `quantsiv-landing`;
+2026-10-05 and again 2026-10-06; the landing repository's last commit is from 1 Oct). This file is for the **private** repo. Landing edits happen in `quantsiv-landing`;
 carry the wording across by hand, never the file. Do not copy code, pricing, audit material or
 this table's "evidence" column into the public repo.
 
@@ -21,7 +21,7 @@ type-resolved analysis, and never claim an agent capability beyond merged code.
 | Scores on two tracks: harvest-now-decrypt-later (HNDL) exposure by the confidentiality lifetime you declare in `quantsiv.yml`, and a separate signature-deadline track | `app/services/scoring.py` (WP6). Thresholds are Quantsiv's own documented rule, not a regulatory requirement |
 | Runs in your CI by default; only the CBOM and finding metadata reach Quantsiv | Decision D1; CLI, container and CI templates (WP7) |
 | Accepts any schema-valid CycloneDX 1.6 CBOM from any CI (for example CBOMkit's), records its producer, and exports the estate CBOM | `POST/GET /api/v1/cbom` (WP7) |
-| Gates a change on newly added quantum-vulnerable crypto, with a per-repository policy. Exceptions need a named approver and an expiry. The same verdict comes from the CI gate, the upload endpoint and the MCP tool | `quantsiv_scanner/policy.py`, `gate.py` (WP10) |
+| Compares each upload with the previous upload of the same repository and flags cryptography the change adds, under a per-repository policy. Exceptions record a named approver and an expiry. The CI gate, the upload endpoint and the MCP tool give the same verdict | `quantsiv_scanner/policy.py`, `gate.py` (WP10). Three known holes until WP12, listed in section 2 |
 | Posts the verdict as a pull request comment, a check run and SARIF | `explainer.py`, `ci/github-actions/quantsiv.yml` (WP10) |
 | A read-only MCP server lets coding assistants ask the policy before they write crypto. It has no write tools and no model inside | `quantsiv mcp` (WP10); snapshot-tested tool contract |
 | Guidance per finding: ML-KEM (FIPS 203) as a hybrid with X25519, ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) | `PQC_GUIDANCE` in `scoring.py`. Findings whose use is unclassified say so instead |
@@ -42,12 +42,23 @@ type-resolved analysis, and never claim an agent capability beyond merged code.
 | Automated migration, generated pull requests, hybrid cipher deployment | Phase 2, not built. Agent decision D8 open |
 | SOC 2, ISO 27001, penetration tests, constant-time PQC implementations | None exist. Own cryptographic implementations also need CMVP (FIPS 140-3) validation before shipping |
 | Any claim about a customer, price, legal entity or availability date | Needs D4/D5 or the founder |
+| "Enforces", "blocks", "tamper-proof" or "audit-grade" change control | Three holes, reproduced with tests on 2026-10-06 (work package WP12): the baseline is the latest upload from any branch, so a failing pull request passes when CI re-runs; the policy is read from the uploaded CBOM, so a pull request can add an exception with an invented approver or switch the gate off; a second use of an algorithm in a file that already has one is not counted as new. Also, a pull request can edit its own workflow file, so a check inside that file is not enforcement. A required check posted by the GitHub App is |
+| "Deep" Java or .NET analysis | Java has five JCA rules and C# three. No BouncyCastle, JWT-library, KeyFactory or SSLContext rules. CBOMkit, when merged, supplies more depth for Java |
+| Configuration-file coverage (nginx, Envoy, Terraform, Kubernetes, sshd) | Not built. Only crypto commands in CI scripts and PEM and SSH key files are read |
+| Supplier CBOM exchange, migration-progress views, evidence packs | Planned (roadmap 1.1 and 1.2) |
 
 ## 3. Forbidden words (CLAUDE.md)
 
 "auto-fix", "autonomous", "agentless", "first or only MCP server for crypto", "cryptographic
 posture management", and any absolute "your code never leaves". Use "scanning runs in your CI by
 default".
+
+**Differentiation wording.** Never "unique", "first" or "only". Free tools already scan wide
+language sets, emit CBOM 1.6 and SARIF, comment on pull requests, fail builds on thresholds or
+baselines, and ship MCP servers (see the landscape table in `quantsiv.md`, checked 2026-10-06).
+Say what Quantsiv combines: lifetime-aware ranking, policy per data class, recorded exceptions,
+an estate view that ingests any CBOM, and scanning that runs in your CI. Waivers exist elsewhere
+(the .NET tool in the landscape table), so exceptions alone are not a difference.
 
 ## 4. Landing page comparison
 
@@ -63,7 +74,7 @@ that repo.
 | "scored on two axes: cryptographic severity, and HNDL exposure" | Not the model | "Two tracks: HNDL exposure by how long the data must stay confidential, and a separate signature-deadline track. HNDL threatens encryption and key establishment; for signatures the risk is future forgery" |
 | "Every finding carries a plain-English explanation and its recommended replacement" | Unclassified findings carry none | "Each finding carries the reason for its rank and, where the use is clear, the standard to migrate to" |
 | "Export a CycloneDX 1.6 CBOM and an audit-ready compliance report citing the authority" | Report not built | "Export a CycloneDX 1.6 CBOM, SARIF and a ranked report" |
-| "Continuous monitoring flags new quantum-vulnerable code the moment it is introduced" | Gate runs per CI run and upload | "A CI gate fails a change that adds quantum-vulnerable cryptography, with exceptions that need a named approver and an expiry" |
+| "Continuous monitoring flags new quantum-vulnerable code the moment it is introduced" | The check runs per CI run, and the gate has three known holes (WP12) | "A CI check flags cryptography that a change adds, and records exceptions with a named approver and an expiry". Do not write "fails the build", "enforces" or "blocks" until WP12 lands |
 | Capability "Source and TLS Detection": "AST-level scanning of Python, Java and Go via cbomkit-lib ... sslyze" | Wrong on engine, depth and languages | "Pattern-based detection across Python, JavaScript/TypeScript, Go, Java/Kotlin, C#, Rust, Ruby, PHP, C/C++, Swift, Dart and CI scripts, plus key and certificate files and a TLS endpoint probe. Limits are published" |
 | Capability "CI/CD Enforcement": "A GitHub Action" | Not published | "CI templates for GitHub Actions, GitLab, Jenkins and Azure DevOps, with SARIF for Code Scanning" |
 | Capability "Migration Guidance": "Concrete replacements for every finding" | Overclaim | "Guidance per finding: ML-KEM, ML-DSA or SLH-DSA, hybrid with X25519 during the transition" |
@@ -82,22 +93,96 @@ that repo.
 | Roadmap Phase 2: "Automated migration of vulnerable dependencies" | "Auto-fix" wording; D8 open | "Suggested changes as draft pull requests with the diff, rationale and cited authority, for a person to review" |
 | Roadmap Phase 4: "constant-time implementations of standardized PQC primitives", "SOC 2 / ISO 27001" | CMVP rule; no certification exists | Remove, or "use validated libraries; certifications are a goal, not a status" |
 | Footer: "GitHub: lcorsini" | A personal handle on a public page | Founder's call |
+| Waitlist form: "Thank you! We've recorded your interest: [address]" | `script.js` shows the message and sends nothing, so nothing is recorded. The statement is false, and collecting emails needs a privacy notice, which waits for D4 | Connect the form to a real store, or say the waitlist is not open yet and disable the button. Founder's call |
+| Hero, meta description and capability card say the CBOM is what regulators or the deadlines "require" | EO 14412 sets minimum-element guidance for CBOMs, and OMB M-26-15 says agency inventory data "should populate a central Cryptographic Bill of Materials". Neither obliges a private company, and "should" is not "require". The timeline heading "OMB M-26-15 mandates a central CBOM" has the same problem. Missed in the first pass | "the Cryptographic Bill of Materials that US federal guidance (EO 14412, OMB M-26-15) is built around" |
+| Title and hero: "Quantum Security Platform" | Not the category the strategy sets: "cryptographic change control and CBOM evidence" (`quantsiv.md`, which also names "Quantum Risk Management Platform" for the enterprise hero) | Founder's call. If the page says "platform", say what it controls: changes to cryptography |
+| Intro: "continuously scanning your code so you know exactly what is exposed" | "Continuously" and "exactly" overclaim: scans run on each build and patterns miss things | "scanning your code on every build so you see what is exposed, how long it stays exposed and what to move to" |
+| Nothing on languages, key files, the gate, exceptions, CBOM import, the MCP server or local-first scanning | The page shows none of the work added since the copy was written, and its engine text describes IBM's tool | Sections 5 to 7 |
 
 ## 5. Worth adding to the landing page (all merged)
 
 - The delivery model in one sentence: scanning runs in your CI by default; metadata only reaches
   an EU-hosted control plane (hosting provider decision D3 is still open, so confirm before
   naming a region).
-- The change gate with approver-and-expiry exceptions. It is the centre of the product
-  (decision D6: cryptographic change control and CBOM evidence, complementary to posture
-  platforms; it exports and ingests plain CycloneDX).
+- The change check with recorded exceptions. It is the centre of the product (decision D6:
+  cryptographic change control and CBOM evidence, complementary to posture platforms; it exports
+  and ingests plain CycloneDX). Word it as "flags", not "enforces", until WP12 lands.
+- Lifetime-aware ranking and the separate signature track. It is the clearest difference from
+  tools that rank by algorithm name.
 - The read-only MCP server for coding assistants. Describe what it does; do not rank it against
-  others.
+  others. Free tools ship MCP servers too; ours answers the organisation's policy and declared
+  lifetimes and runs the same function as the gate.
+- Plain CycloneDX 1.6 in and out: import a CBOM from any tool, export the estate.
+- Key and certificate files, and a TLS probe of domains you prove you own.
 - Published limits: a link or short list of what the scanner does not cover builds trust with the
   buyers this page is for.
 - US and EU framing: add the EU NIS Cooperation Group roadmap next to the US timeline.
 
-## 6. Keeping this in sync
+## 6. Language coverage: what to say
 
-When a work package lands or a claim changes, update section 1 and 2 here first, then the landing
+Rule counts, from `quantsiv_scanner/rules.py` on 2026-10-06. Do not print counts on the page;
+they invite comparison and change often. Say "common cryptographic APIs in".
+
+| Depth | Languages | Rules | Covered |
+| --- | --- | --- | --- |
+| Broad | C, C++, Objective-C | 37 | OpenSSL, mbedTLS, libsodium, wolfSSL, Windows CNG |
+| Broad | Python | 21 | PyCryptodome, pyca/cryptography, JWT libraries |
+| Broad | JavaScript, TypeScript | 15 | Node crypto, WebCrypto, jose, jsonwebtoken, node-forge |
+| Broad | Dart | 14 | pointycastle, package:cryptography, fast_rsa |
+| Broad | Swift | 10 | CryptoKit, swift-crypto, Security framework |
+| Broad | Go | 9 | `crypto/*` |
+| Basic | Rust | 6 | openssl, rsa, ring, dalek crates |
+| Basic | Java, Kotlin | 5 | JCA only: KeyPairGenerator, Cipher, Signature, KeyAgreement |
+| Basic | C# | 3 | RSA, ECDsa, ECDiffieHellman |
+| Basic | Ruby, PHP | 3 | OpenSSL key generation |
+| Scripts | Shell, Dockerfile, Makefile, CI YAML | 6 | openssl, ssh-keygen, keytool commands |
+| Files | PEM, SSH public keys | n/a | Certificates, public and private keys: algorithm and size only |
+
+Java and C# are the stacks of the regulated buyers in the target market, and they are the
+thinnest. Until they are deepened, do not list "Java" or ".NET" as headline coverage; use the
+sentence in section 7.
+
+## 7. Draft copy blocks (public-safe, true today)
+
+Drafts for the founder to edit in `quantsiv-landing`. Each sentence maps to merged code. They
+avoid the words in section 3.
+
+**Hero.** "Quantsiv finds quantum-vulnerable cryptography in your code, ranks it by how long your
+data must stay secret, and flags the changes that add more. Scanning runs in your CI by default
+and produces a CycloneDX 1.6 Cryptographic Bill of Materials."
+
+**Language line.** "Detects common cryptographic APIs in Python, JavaScript and TypeScript, Go,
+Java and Kotlin, C#, Rust, Ruby, PHP, C and C++, Objective-C, Swift and Dart, openssl, ssh-keygen
+and keytool commands in CI and shell scripts, and keys and certificates in PEM and SSH formats.
+Pattern-based, so depth varies by language. Read what we do not cover."
+
+**Capability cards.**
+1. *Cryptographic Bill of Materials.* "CycloneDX 1.6, validated against the schema. Import a CBOM
+   from any tool, for example CBOMkit, and export the whole estate as one."
+2. *Lifetime-aware ranking.* "Declare how long each kind of data must stay confidential.
+   Encryption and key exchange are ranked by that lifetime. Signatures are tracked separately
+   against the signature deadline, because their risk is forgery, not retroactive decryption."
+3. *Change check.* "Compare each build with the last and flag the cryptography a change adds. Set
+   policy per data class and record exceptions with a named approver and an expiry. Results
+   appear as a pull request comment, a check and SARIF in Code Scanning."
+4. *Runs in your CI.* "A container and CLI for GitHub Actions, GitLab, Jenkins and Azure DevOps.
+   Scanning works offline. Only the CBOM and finding metadata reach Quantsiv, and only if you
+   upload."
+5. *Keys, certificates and TLS.* "Reads key and certificate files for algorithm and size. Probes
+   the TLS endpoints you name; the hosted service probes only domains you prove you own with a
+   DNS record."
+6. *For coding assistants.* "A read-only MCP server lets an AI coding assistant ask your policy
+   and declared lifetimes before it writes cryptography. The same check runs at the gate. It has
+   no write tools and no model of ours in it."
+7. *Migration guidance.* "Where the use is clear, each finding names the standard to move to:
+   ML-KEM (FIPS 203), ML-DSA (FIPS 204) or SLH-DSA (FIPS 205), with hybrid key exchange during the
+   transition."
+8. *Honest limits.* "Pattern matching misses aliased and dynamic calls, vendored code and
+   dependencies. We publish the list."
+
+Leave out "Audit-Ready Reporting" until evidence packs exist, or label it planned.
+
+## 8. Keeping this in sync
+
+When a work package lands or a claim changes, update sections 1 and 2 here first, then the landing
 page. Before any landing change ships, check it against sections 2 and 3.

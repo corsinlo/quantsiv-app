@@ -32,6 +32,7 @@ that changes.
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
 | WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
 | WP11 | Phase 1 coverage: C/C++, Swift, Dart rules; key and certificate files; TLS endpoint probe | done | #15 | Added after the founder asked to wrap Phase 1 (2026-10-05). TLS is a one-handshake probe, not a cipher-suite scan; hosted only for DNS-TXT-verified domains |
+| WP12 | Trustworthy change gate | todo | | Found 2026-10-06 while checking the product's claims against the code: the baseline is the latest upload of any branch, the policy comes from the change it gates, and a second use of an algorithm in a flagged file is not counted. Do this before any public "change control" wording |
 
 ## Founder decisions
 
@@ -433,3 +434,42 @@ UI or README copy claiming agents until this WP is merged.
 - The MCP server runs with networking disabled, and exposes no write-capable tool (a test).
 - The tool-description snapshot test passes.
 - A code-signing finding is explained on the signature-deadline track, never as HNDL.
+
+## WP12 - Trustworthy change gate (found 2026-10-06)
+The WP7 and WP10 gate compares an upload with the previous upload of the same repository and
+applies the policy embedded in the uploaded CBOM. Three consequences were reproduced with tests
+on 2026-10-06 (temporary tests, deleted; recreate them as the acceptance tests below):
+- A pull request that fails the gate passes when CI re-runs, because its failed upload is now the
+  baseline.
+- A pull request can excuse itself: it adds an exception with an invented approver, or sets
+  `block_new_quantum_vulnerable: false`, in its own `quantsiv.yml`.
+- A second use of an algorithm in a file that already has one is not new, because an asset is
+  identified by algorithm, primitive and file only.
+
+Decide the design before coding: the baseline item changes the upload API and the approvers
+item changes the policy format.
+- [ ] Baseline. An upload says which ref it comes from and which branch is the default (the CLI
+      reads it from the CI environment: GitHub, GitLab, Azure DevOps, Jenkins). The baseline is
+      the latest upload from the default branch, never from a pull request. A pull request's CBOM
+      is stored as a candidate and becomes a baseline only when the same code is uploaded from
+      the default branch.
+- [ ] Policy source. The verdict applies the policy embedded in the baseline CBOM, so a change
+      cannot rewrite its own rules. When the change edits the policy, the verdict says so and
+      shows the difference. The first upload of a repository, which has no baseline, sets the
+      policy and says it did.
+- [ ] Approvers. An exception counts only when its approver is listed under `policy.approvers` in
+      the base policy. An expiry beyond a configured horizon is refused (the horizon is a founder
+      decision; no default is invented here).
+- [ ] Asset identity counts occurrences: a second use of an algorithm in a file is an added asset.
+      A file that is only moved must not read as a new asset (match on algorithm, primitive and
+      a content hash of the matched line).
+- [ ] Note for 1.2: a pull request can edit the workflow file that runs the check, so real
+      enforcement is a required check posted by the GitHub App (needs the App registered and
+      deployed). Say so in `ci/README.md`.
+
+**Acceptance:**
+- A test per reproduced case fails on today's code and passes after the change: re-run of a
+  failing pull request, self-approved exception, disabled gate, second use in the same file.
+- `quantsiv gate --baseline` and the upload gate still return identical verdicts on the same
+  delta (the WP10 property test stays green).
+- `docs/feature-claims.md` section 2 loses the "enforces" row in the same pull request.

@@ -23,7 +23,7 @@ Only move a row to **Built** when the code is merged and covered by tests.
 | TLS endpoint probe: one handshake per domain for version, cipher, key-exchange group where observable, and certificate key. Hosted for DNS-TXT-verified domains only; `quantsiv scan --tls HOST` in your CI | Built (a probe, not a full cipher-suite scan; limits in `docs/scanner.md`) | Phase 1 |
 | CycloneDX 1.6 CBOM output, per-scan download | Built and validated against the 1.6 schema; no scan produces findings until the engine (D2) exists | WP6 |
 | HNDL scoring from declared data lifetimes (`quantsiv.yml`), plus a separate signature-deadline track | Built; same caveat (D2) | WP6 |
-| CBOM import (any CycloneDX 1.6) with provenance, delta gate, estate export, org API tokens | Built | WP7 |
+| CBOM import (any CycloneDX 1.6) with provenance, delta gate, estate export, org API tokens | Built; the gate's baseline and policy handling is hardened in WP12 (todo) | WP7 |
 | Agent foundations: read-only policy MCP server for AI coding assistants (`quantsiv mcp`), gate explainer (PR comment, check-run, SARIF), approved exceptions, audit export | Built. Deterministic: no model is called anywhere. The eval harness exists but has no results yet | WP10 |
 | Local runner `python -m quantsiv_scanner scan` (offline: CBOM, SARIF, report; optional upload with gate) and CI templates for GitHub Actions, GitLab, Jenkins and Azure DevOps | Built; the container image is built from this repo until the stealth exit | WP7 |
 | Legal pages | Routes and placeholders built, hidden in production until decision D4 and counsel review; erasure runbook and automatic purge on uninstall built | WP8 |
