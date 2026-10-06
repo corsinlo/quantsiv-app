@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 from urllib.parse import quote
 
@@ -22,6 +23,8 @@ from app.services.cbom import build_cbom
 from app.services.errors import ScanError
 from app.services.scoring import is_quantum_vulnerable, score
 from quantsiv_scanner import __version__
+from quantsiv_scanner.ci import BuildContext
+from quantsiv_scanner.ci import detect as detect_build
 from quantsiv_scanner.engine import scan_tree
 from quantsiv_scanner.gate import POLICY_PROPERTY, gate
 from quantsiv_scanner.outputs import dumps, report, report_markdown, sarif
@@ -144,13 +147,21 @@ def write_explainer(verdict: Verdict, out_dir: str) -> None:
             handle.write(text)
 
 
-def upload(cbom_text: str, repository: str, api_url: str) -> dict:
+def upload(cbom_text: str, repository: str, api_url: str, build: BuildContext) -> dict:
     import httpx  # imported here: the offline path never loads an HTTP client
 
     token = os.environ.get("QUANTSIV_TOKEN")
     if not token:
         raise ScanError("--upload needs the organisation token in QUANTSIV_TOKEN")
-    url = f"{api_url.rstrip('/')}/api/v1/cbom?repository={quote(repository, safe='/')}"
+    params = {"repository": repository}
+    if build.branch:
+        params["branch"] = build.branch
+    if build.default_branch:
+        params["default_branch"] = build.default_branch
+    if build.change:
+        params["change"] = "true"
+    query = "&".join(f"{key}={quote(value, safe='/')}" for key, value in params.items())
+    url = f"{api_url.rstrip('/')}/api/v1/cbom?{query}"
     response = httpx.post(
         url,
         content=cbom_text.encode(),
@@ -192,6 +203,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="print raw findings as JSON, write nothing"
     )
     scan.add_argument("--upload", action="store_true", help="upload the CBOM (QUANTSIV_TOKEN)")
+    scan.add_argument(
+        "--branch",
+        help="branch this build runs on (default: from the CI environment, QUANTSIV_BRANCH)",
+    )
+    scan.add_argument(
+        "--default-branch",
+        help="the repository's default branch (default: from the CI environment, "
+        "QUANTSIV_DEFAULT_BRANCH). Only a build on it can become the baseline",
+    )
+    scan.add_argument(
+        "--change",
+        action="store_true",
+        default=None,
+        help="this build is a pull or merge request: compared against the baseline, never "
+        "becomes one (default: from the CI environment, QUANTSIV_CHANGE)",
+    )
     scan.add_argument("--api-url", default=os.environ.get("QUANTSIV_API_URL", DEFAULT_API))
     scan.add_argument(
         "--no-gate",
@@ -206,6 +233,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gate_cmd.add_argument(
         "--policy", help="quantsiv.yml to apply; default: the policy embedded in the CBOM"
+    )
+    gate_cmd.add_argument(
+        "--policy-from",
+        choices=("baseline", "change"),
+        default="baseline",
+        help="whose policy decides when --policy is not given: the baseline's, so a change "
+        "cannot rewrite its own rules (default), or the new CBOM's, for a default-branch build",
     )
     gate_cmd.add_argument("--out", default="quantsiv-out/gate", help="output directory")
     mcp = sub.add_parser(
@@ -250,7 +284,14 @@ def run_gate(args) -> int:
 
         with open(args.policy, encoding="utf-8") as handle:
             policy = parse_policy(handle.read())
-    verdict = gate(current, baseline, repository, datetime.now(UTC).date(), policy)
+    verdict = gate(
+        current,
+        baseline,
+        repository,
+        datetime.now(UTC).date(),
+        policy,
+        own_policy=args.policy_from == "change",
+    )
     write_explainer(verdict, args.out)
     print(f"gate {'pass' if verdict.passed else 'fail'}: {verdict.summary}; outputs in {args.out}/")
     return 0 if verdict.passed else 1
@@ -334,13 +375,31 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if not _repository(args.repository):
             raise ScanError("--upload needs --repository owner/name (or a CI environment)")
-        result = upload(cbom_text, repository, args.api_url)
+        build = detect_build()
+        if args.branch:
+            build = replace(build, branch=args.branch)
+        if args.default_branch:
+            build = replace(build, default_branch=args.default_branch)
+        if args.change is not None:
+            build = replace(build, change=args.change)
+        if not build.change and not build.can_be_baseline:
+            print(
+                "quantsiv: the branch or the default branch of this build is unknown or "
+                "differs, so the upload is stored as a candidate and cannot become the "
+                "baseline. Set --branch and --default-branch (or QUANTSIV_BRANCH and "
+                "QUANTSIV_DEFAULT_BRANCH) on the default branch's build.",
+                file=sys.stderr,
+            )
+        result = upload(cbom_text, repository, args.api_url, build)
         extra = (
             f", new quantum-vulnerable: {', '.join(result['new_quantum_vulnerable'])}"
             if result.get("new_quantum_vulnerable")
             else ""
         )
-        print(f"uploaded as scan {result['scan_id']}: gate {result['gate']}{extra}")
+        kind = "baseline" if result.get("baseline") else "candidate"
+        print(f"uploaded as scan {result['scan_id']} ({kind}): gate {result['gate']}{extra}")
+        for note in (result.get("verdict") or {}).get("notes") or []:
+            print(f"quantsiv: {note}", file=sys.stderr)
         if result.get("verdict"):
             from quantsiv_scanner.policy import verdict_from_dict
 

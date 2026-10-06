@@ -23,5 +23,17 @@ No cryptographic assets were added.
 
 Removed: {{ v.removed | join(", ") }}.
 {% endif %}
+{% if v.policy_changes %}
+
+### Policy changes in this change
+
+{% for c in v.policy_changes %}
+- {{ c | cell }}
+{% endfor %}
+{% endif %}
+{% for n in v.notes %}
+
+> {{ n | cell }}
+{% endfor %}
 
 <sub>Harvest-now-decrypt-later applies to key establishment and encryption only; signatures are ranked against the signature deadline. The verdict is deterministic (no model involved). quantsiv-scanner {{ version }}.</sub>

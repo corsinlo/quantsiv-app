@@ -11,8 +11,14 @@ quantsiv:
   script:
     - export QUANTSIV_STEP_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     - UPLOAD=""; if [ -n "$QUANTSIV_TOKEN" ]; then UPLOAD="--upload"; fi
+    # Which build is this? Only a default-branch build becomes the baseline; a merge request is
+    # compared against it and never becomes one.
+    - export QUANTSIV_BRANCH="${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"
+    - export QUANTSIV_DEFAULT_BRANCH="$CI_DEFAULT_BRANCH"
+    - export QUANTSIV_CHANGE="$([ -n "$CI_MERGE_REQUEST_IID" ] && echo true || echo false)"
     - docker run --rm
         -e QUANTSIV_TOKEN -e QUANTSIV_STEP_STARTED -e CI_PROJECT_PATH
+        -e QUANTSIV_BRANCH -e QUANTSIV_DEFAULT_BRANCH -e QUANTSIV_CHANGE
         -v "$CI_PROJECT_DIR:/src" -w /src "$QUANTSIV_IMAGE"
         scan /src --out /src/quantsiv-out $UPLOAD
   artifacts:

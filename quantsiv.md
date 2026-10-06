@@ -255,8 +255,19 @@ Each obligation shows its source and its status. The pack also includes:
 | CBOMkit (`cbomkit-lib`, sonar-cryptography, CBOMkit GitHub Action) | IBM, donated to the Linux Foundation's PQCA; Apache-2.0 | Generates CBOMs from Java and Python code; ships a GitHub Action and a SonarQube plugin | Quantsiv's first engine. Detection is commoditising: do not compete on it |
 | CodeQL PQC/CBOM work | GitHub | Queries that locate cryptography for PQC migration | Free on GitHub; the same commoditisation pressure |
 | pqcscan, pqc-scan, cryptoscan | Various | Endpoint or repo scanners, some emitting CBOM/SARIF | Unverified details; verify before citing externally |
+| qsafe (PQC Posture Scanner) | Independent; MIT; PyPI 1.2.0, 26 Mar 2026 | Regex scan of Python, JS/TS, Java, Go, Rust, Ruby, PHP, C/C++, shell, plus YAML, TOML and Terraform; flags test versus production code; CBOM 1.6, SARIF, a GitHub Action that comments on pull requests, `--fail-on` thresholds, an MCP server | The same shape as our scanner, with config files we lack |
+| keylens/cbom | Independent; MPL-2.0 | Rust with tree-sitter; Python, JavaScript and lockfiles; `cbom diff --base --head` for pull requests; `--strict` against CNSA 2.0; CycloneDX 1.5 per its README | A pull-request diff already exists in open source |
+| PostQuantum.CryptographicBillOfMaterials.Cli | Independent; MIT; NuGet 1.2.0, 26 Aug 2026 | C# and .NET only; CBOM 1.6 and SARIF; `--fail-on`; `--baseline` stamps findings New, Unchanged, Regressed or Waived; waivers in audit packets | Baselines and waivers exist in open source |
+| CBOMkit components | PQCA | sonar-cryptography reads Java, Python and Go; cbomkit-theia reads certificates, keys, secrets, config files and container images | Theia covers artefacts we do not |
 
 These validate the technical approach, and they also mean "we emit a CBOM" is not a moat.
+
+Checked 2026-10-06 on each tool's own package or repository page, not by running it, so details can
+be wrong: re-check before citing externally. None of those pages documents declared data
+lifetimes, a signature-deadline track, policy per data class, or an estate view that ingests any
+producer's CBOM. The .NET tool documents waivers; whether they carry an approver and an expiry was
+not checked. Absence from a page is not proof of absence in the tool, and never a reason to write
+"only" or "first".
 
 ### Enterprise players (real products, enterprise sales)
 

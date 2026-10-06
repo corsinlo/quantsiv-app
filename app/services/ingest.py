@@ -8,6 +8,7 @@ never source code.
 
 import json
 import uuid
+from collections import Counter
 from datetime import UTC, datetime
 
 from cyclonedx.schema import SchemaVersion
@@ -91,13 +92,27 @@ def asset_key(finding: dict) -> tuple:
     return (finding["algorithm"], finding.get("primitive"), finding.get("file_path"))
 
 
+def _beyond(findings: list[dict], baseline: Counter) -> list[dict]:
+    """The findings of an asset beyond the number the other side already had."""
+    seen: Counter = Counter()
+    extra = []
+    for finding in findings:
+        key = asset_key(finding)
+        seen[key] += 1
+        if seen[key] > baseline[key]:
+            extra.append(finding)
+    return extra
+
+
 def diff(previous: list[dict], current: list[dict]) -> tuple[list[dict], list[dict]]:
-    """(added, removed) cryptographic assets between two uploads of the same repository."""
-    before = {asset_key(f) for f in previous}
-    after = {asset_key(f) for f in current}
+    """(added, removed) cryptographic assets between two uploads of the same repository.
+
+    An asset is identified by algorithm, primitive and file, and occurrences are counted: a second
+    use of RSA in a file that already had one is an added asset (earlier versions compared sets,
+    so the second use was invisible)."""
     return (
-        [f for f in current if asset_key(f) not in before],
-        [f for f in previous if asset_key(f) not in after],
+        _beyond(current, Counter(asset_key(f) for f in previous)),
+        _beyond(previous, Counter(asset_key(f) for f in current)),
     )
 
 

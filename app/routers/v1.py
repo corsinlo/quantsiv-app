@@ -2,7 +2,13 @@
 
 Only CBOM JSON is accepted, never source. The response includes a deterministic gate verdict on
 the CBOM *delta*: it fails when the upload adds quantum-vulnerable cryptography compared with the
-previous upload for the same repository (D7: tools decide, people approve).
+latest default-branch upload for the same repository (D7: tools decide, people approve).
+
+Which upload is the baseline (WP12): only a build that says it ran on the default branch, and is
+not a pull or merge request. Every other upload, including one that does not say, is a candidate:
+it is gated against the baseline and stored, but never becomes one. A failing pull request
+therefore fails again when CI re-runs. The baseline's policy decides, so a change cannot excuse
+itself (see `quantsiv_scanner.gate.gate`).
 """
 
 import re
@@ -65,13 +71,26 @@ def _repository(value: str) -> str:
     return value
 
 
-async def _latest(db: AsyncSession, installation: Installation, repo: str) -> Scan | None:
+BRANCH = re.compile(r"[A-Za-z0-9._/@+#=-]{1,200}")
+
+
+def _branch(value: str | None, name: str) -> str | None:
+    if value is None or value == "":
+        return None
+    if not BRANCH.fullmatch(value):
+        raise HTTPException(422, f"{name} must be a branch name of at most 200 characters")
+    return value
+
+
+async def _baseline(db: AsyncSession, installation: Installation, repo: str) -> Scan | None:
+    """The latest default-branch upload: the only thing a change is compared against."""
     return await db.scalar(
         select(Scan)
         .where(
             Scan.installation_id == installation.id,
             Scan.repo_full_name == repo,
             Scan.scan_type == "cbom",
+            Scan.baseline.is_(True),
         )
         .order_by(Scan.id.desc())
         .options(selectinload(Scan.cbom))
@@ -80,26 +99,40 @@ async def _latest(db: AsyncSession, installation: Installation, repo: str) -> Sc
 
 
 @router.post("/cbom", status_code=201)
-async def upload_cbom(request: Request, installation: TokenInstallation, db: Db, repository: str):
+async def upload_cbom(
+    request: Request,
+    installation: TokenInstallation,
+    db: Db,
+    repository: str,
+    branch: str | None = None,
+    default_branch: str | None = None,
+    change: bool = False,
+):
     repo = _repository(repository)
+    branch, default_branch = _branch(branch, "branch"), _branch(default_branch, "default_branch")
+    # Fail safe: without both names, or for a pull or merge request, the upload is a candidate
+    is_baseline = not change and branch is not None and branch == default_branch
     try:
         doc = ingest.validate(await read_body(request, MAX_CBOM))
     except ingest.InvalidCbom as exc:
         raise HTTPException(422, str(exc)) from None
     current = ingest.findings_from_cbom(doc)
-    previous_scan = await _latest(db, installation, repo)
+    previous_scan = await _baseline(db, installation, repo)
     baseline = previous_scan.cbom.cbom_json if previous_scan else None
     today = utcnow().date()
-    policy = policy_from_cbom(doc)
     # The same function the MCP server's check_change and `quantsiv gate` call (WP10)
-    verdict = gate(doc, baseline, repo, today, policy)
+    verdict = gate(doc, baseline, repo, today, own_policy=is_baseline)
     added, removed = delta(doc, baseline)
 
-    scored = score(current, repo, policy.lifetimes, today)
+    # Findings are ranked under the policy that decided the gate
+    ranking = policy_from_cbom(baseline) if baseline and not is_baseline else policy_from_cbom(doc)
+    scored = score(current, repo, ranking.lifetimes, today)
     scan = Scan(
         installation_id=installation.id,
         repo_full_name=repo,
         scan_type="cbom",
+        branch=branch,
+        baseline=is_baseline,
         triggered_by="action",
         status=ScanStatus.DONE,
         completed_at=utcnow(),
@@ -119,6 +152,8 @@ async def upload_cbom(request: Request, installation: TokenInstallation, db: Db,
             kind="gate",
             data={
                 "repository": repo,
+                "branch": branch,
+                "baseline": is_baseline,
                 "baseline_scan_id": previous_scan.id if previous_scan else None,
                 **verdict.as_dict(),
             },
@@ -135,6 +170,7 @@ async def upload_cbom(request: Request, installation: TokenInstallation, db: Db,
         "producer": scan.cbom.producer,
         "assets": len(current),
         "baseline_scan_id": previous_scan.id if previous_scan else None,
+        "baseline": is_baseline,
         "added": names(added),
         "removed": names(removed),
         "new_quantum_vulnerable": sorted({e.algorithm for e in verdict.blocking}),
@@ -169,10 +205,14 @@ async def export_audit(installation: TokenInstallation, db: Db, limit: int = 500
 
 @router.get("/cbom")
 async def export_estate(installation: TokenInstallation, db: Db):
-    """The latest uploaded CBOM of every repository, as one plain CycloneDX 1.6 document."""
+    """The latest default-branch CBOM of every repository, as one plain CycloneDX 1.6 document."""
     scans = await db.scalars(
         select(Scan)
-        .where(Scan.installation_id == installation.id, Scan.scan_type == "cbom")
+        .where(
+            Scan.installation_id == installation.id,
+            Scan.scan_type == "cbom",
+            Scan.baseline.is_(True),
+        )
         .order_by(Scan.repo_full_name, Scan.id.desc())
         .options(selectinload(Scan.cbom))
     )

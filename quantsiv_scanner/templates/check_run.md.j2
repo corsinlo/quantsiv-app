@@ -15,4 +15,13 @@
 {% if v.removed %}
 Removed: {{ v.removed | join(", ") }}
 {% endif %}
+{% if v.policy_changes %}
+Policy changes in this change:
+{% for c in v.policy_changes %}
+- {{ c }}
+{% endfor %}
+{% endif %}
+{% for n in v.notes %}
+Note: {{ n }}
+{% endfor %}
 quantsiv-scanner {{ version }}; policy version {{ v.policy_version }}.

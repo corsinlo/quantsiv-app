@@ -32,6 +32,7 @@ that changes.
 | WP9 | Performance | done | #8 | About 96 KB of static assets per page; `tests/test_performance.py` enforces the 100 KB budget |
 | WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
 | WP11 | Phase 1 coverage: C/C++, Swift, Dart rules; key and certificate files; TLS endpoint probe | done | #15 | Added after the founder asked to wrap Phase 1 (2026-10-05). TLS is a one-handshake probe, not a cipher-suite scan; hosted only for DNS-TXT-verified domains |
+| WP12 | Trustworthy change gate | done | #16 | Found 2026-10-06 while checking the product's claims against the code. A change is compared with the latest default-branch upload, the baseline's policy decides, and occurrences are counted. Limit: a pull request can edit its own workflow file, so real enforcement needs the GitHub App's required check (1.2) |
 
 ## Founder decisions
 
@@ -433,3 +434,43 @@ UI or README copy claiming agents until this WP is merged.
 - The MCP server runs with networking disabled, and exposes no write-capable tool (a test).
 - The tool-description snapshot test passes.
 - A code-signing finding is explained on the signature-deadline track, never as HNDL.
+
+## WP12 - Trustworthy change gate (found 2026-10-06)
+The WP7 and WP10 gate compared an upload with the previous upload of the same repository, from
+any branch, and applied the policy embedded in the uploaded CBOM. Three consequences were
+reproduced with tests on 2026-10-06 before the fix:
+- A pull request that fails the gate passed when CI re-ran, because its failed upload had become
+  the baseline.
+- A pull request could excuse itself: it added an exception with an invented approver, or set
+  `block_new_quantum_vulnerable: false`, in its own `quantsiv.yml`.
+- A second use of an algorithm in a file that already had one was not new, because an asset is
+  identified by algorithm, primitive and file only.
+
+- [x] Baseline. An upload says which branch it ran on, which branch is the default, and whether
+      it is a pull or merge request (`branch`, `default_branch`, `change`). Only a default-branch
+      build that is not a change becomes the baseline; everything else, including an upload that
+      does not say, is a candidate. `scans.branch` and `scans.baseline` (migration 0006); the
+      estate export reads baselines only. The CLI reads the three values from the CI
+      environment (`quantsiv_scanner/ci.py`) and the four CI templates pass them.
+- [x] Policy source. The baseline's policy decides (`gate(..., own_policy=...)`); a default-branch
+      build applies its own; the first upload bootstraps and says so. The verdict carries
+      `policy_source`, `policy_changes` (what the change does to the policy, loosening entries
+      marked) and `notes`; the PR comment and the check run show them. `quantsiv gate` takes
+      `--policy-from baseline|change`.
+- [x] Occurrence counting in `ingest.diff`.
+- [x] Decided against: an in-file `approvers:` list. It lives in the same file the policy lives
+      in, so it adds no control. The control is that exceptions take effect only after merge and
+      that `quantsiv.yml` can be put under CODEOWNERS. The approver name stays a record.
+- [ ] For 1.2: a pull request can edit the workflow file that runs the check, so real
+      enforcement is a required check posted by the GitHub App (needs the App registered and
+      deployed). `ci/README.md` states the limit.
+- [ ] Not done: a file that is only moved reads as removed and added (the gate fails a pure
+      move). Fixing it needs a per-asset fingerprint in the CBOM; do it with the first design
+      partner's feedback.
+
+**Acceptance (met, `tests/test_gate_baseline.py`):**
+- Re-run of a failing pull request, self-approved exception, disabled gate and second use in the
+  same file each have a test that fails on the old code and passes now.
+- `quantsiv gate --baseline` and the upload gate agree (the WP10 property test stays green).
+- `docs/feature-claims.md` section 2 states the remaining limits (workflow editing, moved files)
+  in the same pull request.

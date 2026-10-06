@@ -266,6 +266,13 @@ class Verdict:
     added: tuple[Explanation, ...]
     removed: tuple[str, ...]
     summary: str
+    # Which policy decided: "baseline" (the default branch's, so a change cannot rewrite its own
+    # rules), "own" (a default-branch build applies its own), "bootstrap" (no baseline exists
+    # yet), "explicit" (a file given to `quantsiv gate --policy`) or "local" (no gate wrapper,
+    # e.g. the MCP server reading quantsiv.yml)
+    policy_source: str = "local"
+    policy_changes: tuple[str, ...] = ()
+    notes: tuple[str, ...] = ()
 
     @property
     def blocking(self) -> list[Explanation]:
@@ -285,7 +292,91 @@ class Verdict:
             "removed": list(self.removed),
             "blocking": [e.as_dict() for e in self.blocking],
             "excepted": [e.as_dict() for e in self.excepted],
+            "policy_source": self.policy_source,
+            "policy_changes": list(self.policy_changes),
+            "notes": list(self.notes),
         }
+
+
+def _exception_text(e: dict) -> str:
+    where = f" in {e['path']}" if e.get("path") else ""
+    return f"{e['asset']}{where}, approver {e['approver']}, expires {e['expires']}"
+
+
+def policy_changes(old: Policy, new: Policy) -> tuple[str, ...]:
+    """What `new` changes compared with `old`, in words. Entries that make the gate more
+    permissive start with "loosens:" so a reviewer cannot miss them."""
+    a, b = old.as_dict(), new.as_dict()
+    out: list[str] = []
+
+    if a["block_new_quantum_vulnerable"] != b["block_new_quantum_vulnerable"]:
+        word = "loosens" if not b["block_new_quantum_vulnerable"] else "tightens"
+        out.append(
+            f"{word}: block_new_quantum_vulnerable changed from "
+            f"{str(a['block_new_quantum_vulnerable']).lower()} to "
+            f"{str(b['block_new_quantum_vulnerable']).lower()}"
+        )
+    for primitive in sorted(set(a["blocked_primitives"]) - set(b["blocked_primitives"])):
+        out.append(f"loosens: {primitive} is no longer a blocked primitive")
+    for primitive in sorted(set(b["blocked_primitives"]) - set(a["blocked_primitives"])):
+        out.append(f"tightens: {primitive} is now a blocked primitive")
+    for name in sorted(set(b["allowed_algorithms"]) - set(a["allowed_algorithms"])):
+        out.append(f"loosens: algorithm {name} is now always allowed")
+    for name in sorted(set(a["allowed_algorithms"]) - set(b["allowed_algorithms"])):
+        out.append(f"tightens: algorithm {name} is no longer always allowed")
+
+    def exception_key(e: dict) -> tuple:
+        return (e["asset"], e.get("path"))
+
+    before = {exception_key(e): e for e in a["exceptions"]}
+    after = {exception_key(e): e for e in b["exceptions"]}
+    for key in sorted(after, key=str):
+        if key not in before:
+            out.append(f"loosens: exception added for {_exception_text(after[key])}")
+        elif after[key] != before[key]:
+            out.append(
+                f"changed: exception for {_exception_text(before[key])} is now "
+                f"{_exception_text(after[key])}"
+            )
+    for key in sorted(before, key=str):
+        if key not in after:
+            out.append(f"tightens: exception removed for {_exception_text(before[key])}")
+
+    old_classes, new_classes = a["data_classes"], b["data_classes"]
+    for name in sorted(set(old_classes) | set(new_classes)):
+        before_c, after_c = old_classes.get(name), new_classes.get(name)
+        if before_c is None:
+            out.append(f"changed: data class {name} added")
+        elif after_c is None:
+            out.append(f"changed: data class {name} removed")
+        else:
+            years_a = before_c["confidentiality_lifetime_years"]
+            years_b = after_c["confidentiality_lifetime_years"]
+            if years_a != years_b:
+                word = "loosens" if years_b < years_a else "tightens"
+                out.append(
+                    f"{word}: data class {name} lifetime changed from {years_a} to {years_b} years"
+                )
+            if before_c.get("blocked_primitives") != after_c.get("blocked_primitives"):
+                out.append(f"changed: blocked primitives of data class {name}")
+    for repo in sorted(set(a["repositories"]) | set(b["repositories"])):
+        if a["repositories"].get(repo) != b["repositories"].get(repo):
+            out.append(
+                f"changed: {repo} moves from data class {a['repositories'].get(repo) or 'none'} "
+                f"to {b['repositories'].get(repo) or 'none'}"
+            )
+    if a["signature_deadline"] != b["signature_deadline"]:
+        word = "loosens" if b["signature_deadline"] > a["signature_deadline"] else "tightens"
+        out.append(
+            f"{word}: signature deadline changed from {a['signature_deadline']} "
+            f"to {b['signature_deadline']}"
+        )
+    if a["signature_trust_years"] != b["signature_trust_years"]:
+        out.append(
+            f"changed: signature trust years from {a['signature_trust_years']} "
+            f"to {b['signature_trust_years']}"
+        )
+    return tuple(out)
 
 
 def explain(finding: dict, repo_full_name: str, policy: Policy, today: date) -> Explanation:
@@ -383,6 +474,9 @@ def verdict_from_dict(data: dict) -> Verdict:
         added=added,
         removed=tuple(data.get("removed") or []),
         summary=str(data.get("summary") or ""),
+        policy_source=str(data.get("policy_source") or "local"),
+        policy_changes=tuple(data.get("policy_changes") or []),
+        notes=tuple(data.get("notes") or []),
     )
 
 
@@ -395,6 +489,7 @@ __all__ = [
     "evaluate",
     "explain",
     "parse_policy",
+    "policy_changes",
     "policy_from_dict",
     "read_policy",
     "verdict_from_dict",

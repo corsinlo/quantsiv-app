@@ -10,7 +10,9 @@ The customer-side scanner (decisions D1 and D2). It runs on a local checkout, of
 
 ```text
 python -m quantsiv_scanner scan [PATH] [--out DIR] [--repository owner/name]
-                                 [--cbomkit FILE] [--upload] [--api-url URL] [--no-gate] [--json]
+                                 [--cbomkit FILE] [--tls HOST] [--json]
+                                 [--upload] [--api-url URL] [--no-gate]
+                                 [--branch NAME] [--default-branch NAME] [--change]
 ```
 
 - `--repository` defaults to `GITHUB_REPOSITORY`, `CI_PROJECT_PATH` or `BUILD_REPOSITORY_NAME`.
@@ -19,8 +21,12 @@ python -m quantsiv_scanner scan [PATH] [--out DIR] [--repository owner/name]
   CBOM records `quantsiv:merged-from`.
 - `--upload` sends the CBOM to `POST /api/v1/cbom` with the token from **`QUANTSIV_TOKEN`**. There
   is no `--token` flag: tokens never go on a command line. The exit code is 1 when the control
-  plane's gate fails (newly added quantum-vulnerable cryptography since the previous upload of
-  the same repository), 0 otherwise; `--no-gate` keeps it at 0.
+  plane's gate fails (newly added quantum-vulnerable cryptography compared with the latest
+  default-branch upload of the same repository), 0 otherwise; `--no-gate` keeps it at 0.
+- `--branch`, `--default-branch` and `--change` say which build this is. They default to the CI
+  environment (GitHub Actions and GitLab are detected; set `QUANTSIV_DEFAULT_BRANCH` on Azure
+  DevOps and Jenkins; `QUANTSIV_BRANCH`, `QUANTSIV_DEFAULT_BRANCH` and `QUANTSIV_CHANGE` work
+  anywhere). See "How the gate decides" below.
 - `--json` prints the raw engine output and writes nothing. The hosted worker uses it.
 - Exit code 2 means a usage or input error; the message says which.
 
@@ -28,7 +34,8 @@ python -m quantsiv_scanner scan [PATH] [--out DIR] [--repository owner/name]
 
 ```text
 python -m quantsiv_scanner gate --cbom quantsiv-out/cbom.json [--baseline previous.json]
-                                [--policy quantsiv.yml] [--out quantsiv-out/gate]
+                                [--policy quantsiv.yml] [--policy-from baseline|change]
+                                [--out quantsiv-out/gate]
 python -m quantsiv_scanner mcp [--repo .] [--cbom quantsiv-out/cbom.json]
                                [--audit quantsiv-out/mcp-audit.jsonl | --no-audit]
                                [--allow-estate --api-url URL]
@@ -37,6 +44,29 @@ python -m quantsiv_scanner mcp [--repo .] [--cbom quantsiv-out/cbom.json]
 `gate` evaluates the delta between two CBOMs under the policy and writes `verdict.json`,
 `pr_comment.md`, `check_run.json` and `gate.sarif`; exit 1 means blocked. The upload endpoint and
 the MCP server's `check_change` run the same `policy.evaluate`, so all three agree.
+
+### How the gate decides
+
+- **Baseline.** A change is compared with the latest upload from the default branch, never with
+  another pull request. Only a build that says it ran on the default branch, and is not a pull
+  or merge request, becomes a baseline. Every other upload, including one that does not say, is a
+  candidate: gated, stored, and never used as a baseline. A failing pull request therefore fails
+  again when CI re-runs. The estate export holds default-branch builds only.
+- **Policy.** The baseline's policy decides, so a change cannot add an exception or switch the
+  gate off in its own `quantsiv.yml`. The verdict lists every edit the change makes to the
+  policy, marks the ones that loosen it, and says the edits take effect after the change is
+  merged and built on the default branch. A default-branch build applies its own policy, because
+  its code has been reviewed and merged. The first upload of a repository has no baseline and
+  applies its own policy, and says so.
+- **Adding an exception.** Merge the exception first, then the code that needs it. Put
+  `quantsiv.yml` under CODEOWNERS, so that someone other than the author approves it. The
+  approver name is a record of that decision, not an identity check.
+- **Counting.** An asset is identified by algorithm, primitive and file, and occurrences are
+  counted: a second use of an algorithm in a file that already had one is an added asset. A
+  file that is only moved reads as removed and added.
+- **Limit.** A pull request can edit the workflow file that runs the scan, so this is honest-CI
+  plumbing, not enforcement against a hostile author. Enforcement needs a required check that
+  the pull request cannot edit, which is the GitHub App's check run (roadmap 1.2).
 
 `mcp` serves four read-only tools over stdio to a coding assistant: `get_policy`,
 `check_change`, `get_cbom_summary` and `explain_finding`. No tool writes files, runs a shell or

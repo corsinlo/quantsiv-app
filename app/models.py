@@ -83,6 +83,10 @@ class Scan(Base):
     scan_type: Mapped[str] = mapped_column(String(10), default="source")  # source|tls|both
     status: Mapped[str] = mapped_column(String(10), default=ScanStatus.QUEUED)
     triggered_by: Mapped[str] = mapped_column(String(10))  # push|manual|scheduled|action
+    # CBOM uploads (WP12): the branch the build ran on, and whether it is a default-branch build.
+    # Only baseline uploads are compared against and exported; pull request builds never are.
+    branch: Mapped[str | None] = mapped_column(String(200))
+    baseline: Mapped[bool] = mapped_column(Boolean, default=False)
     # Only ScanError messages are stored here; anything else is "Internal error" (A15)
     error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
