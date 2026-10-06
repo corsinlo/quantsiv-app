@@ -61,6 +61,10 @@ gates them on a per-repository policy**:
   `LEGAL_READY=true`, which waits for D4 and counsel. Never write legal text without D4. The
   erasure flow (`docs/runbooks/erasure.md`, `worker.purge_installation`, `delete_account`) is
   built;
+- nothing is deployed and no image is published. `docs/runbooks/deploy.md` and
+  `docs/runbooks/release-scanner.md` hold the steps and say what only the founder can do (host,
+  domain, GitHub App registration, signing key). The Dockerfile's last stage is the web image
+  unless `ROLE=worker`, because Railway cannot choose a build target;
 - the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks
   `deb.debian.org`).
 

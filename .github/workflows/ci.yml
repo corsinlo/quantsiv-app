@@ -107,3 +107,25 @@ jobs:
           docker run --rm --network none -v "$PWD/tests/scanner/fixtures/sample:/src" quantsiv-scanner \
             scan /src --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["findings"], d'
 
+  # Hosts that cannot choose a build target (Railway) build the last stage; ROLE picks the image
+  docker-role:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        role: [web, worker]
+    steps:
+      - uses: actions/checkout@v4
+      - name: A plain build with ROLE=${{ matrix.role }} gives the ${{ matrix.role }} image
+        run: |
+          docker build --build-arg ROLE=${{ matrix.role }} -t quantsiv-deploy .
+          cmd="$(docker inspect --format '{{json .Config.Cmd}}' quantsiv-deploy)"
+          echo "$cmd"
+          case "${{ matrix.role }}" in
+            web) echo "$cmd" | grep -q uvicorn ;;
+            worker) echo "$cmd" | grep -q arq ;;
+          esac
+      - name: The default build is the web image
+        if: matrix.role == 'web'
+        run: |
+          docker build -t quantsiv-default .
+          docker inspect --format '{{json .Config.Cmd}}' quantsiv-default | grep -q uvicorn

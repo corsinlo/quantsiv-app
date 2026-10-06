@@ -1,0 +1,6 @@
+# The worker service (ARQ). In its Railway service settings, set "Config as code" to
+# /railway.worker.toml, and add the service variable ROLE=worker so the build produces the
+# worker image (Railway cannot choose a Dockerfile target; see the Dockerfile header).
+# No health check: the worker serves no HTTP. No pre-deploy command: the web service migrates.
+[deploy]
+restartPolicyType = "ON_FAILURE"

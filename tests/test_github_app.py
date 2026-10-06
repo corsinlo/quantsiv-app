@@ -68,3 +68,26 @@ def test_app_jwt_is_rs256_with_the_app_id(monkeypatch):
     claims = jwt.decode(token, key.public_key(), algorithms=["RS256"])
     assert claims["iss"] == "12345"
     assert claims["exp"] - claims["iat"] <= 600
+
+
+def test_app_jwt_accepts_a_pem_stored_with_literal_backslash_n(monkeypatch):
+    """Hosts that keep a secret on one line store the key as `-----BEGIN...\\n...`."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+
+    class Settings:
+        github_app_id = "12345"
+
+        class github_app_private_key:
+            @staticmethod
+            def get_secret_value():
+                return pem.strip().replace("\n", "\\n")
+
+    assert "\n" not in Settings.github_app_private_key.get_secret_value()
+    monkeypatch.setattr(github_module, "get_settings", lambda: Settings)
+    token = github_module.GitHubApp().app_jwt()
+    assert jwt.decode(token, key.public_key(), algorithms=["RS256"])["iss"] == "12345"

@@ -1,4 +1,5 @@
-# Railway ignores Docker HEALTHCHECK; configure the health check here (A09)
+# The web service. Railway ignores Docker HEALTHCHECK; configure the health check here (A09).
+# The worker uses railway.worker.toml instead (see docs/runbooks/deploy.md).
 [deploy]
 healthcheckPath = "/health"
 # Apply database migrations (Postgres, DATABASE_URL) before the new web version starts (A51)

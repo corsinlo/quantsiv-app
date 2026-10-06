@@ -1,0 +1,91 @@
+# Build the scanner image, push it to a private registry and sign it (decision D1: a signed
+# container). Manual only; the first run should be a dry run, which builds and checks the image
+# and pushes and signs nothing. Nothing here makes anything public: the package stays private
+# until its visibility is changed in GitHub, and the signature goes to no public log.
+# Runbook: docs/runbooks/release-scanner.md
+name: release-scanner
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag, for example 0.1.0"
+        required: true
+        type: string
+      dry_run:
+        description: "Build and check the image; push and sign nothing"
+        required: true
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  packages: write
+concurrency: release-scanner
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs and, for a real release, the signing key
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "::error::The version must look like 0.1.0"; exit 1; }
+          if [ "$DRY_RUN" != "true" ] && { [ -z "$COSIGN_PRIVATE_KEY" ] || [ -z "$COSIGN_PASSWORD" ]; }; then
+            echo "::error::Add the secrets COSIGN_PRIVATE_KEY and COSIGN_PASSWORD first (docs/runbooks/release-scanner.md)"
+            exit 1
+          fi
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/quantsiv-scanner" >> "$GITHUB_ENV"
+
+      - name: Build the scanner image and prove it runs offline
+        run: |
+          docker build --target scanner -t "$IMAGE:$VERSION" .
+          docker run --rm --network none -v "$PWD/tests/scanner/fixtures/sample:/src" "$IMAGE:$VERSION" \
+            scan /src --json | python3 -c 'import json,sys; assert json.load(sys.stdin)["findings"]'
+
+      - name: Log in to the registry
+        if: ${{ !inputs.dry_run }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push the image and read its digest
+        if: ${{ !inputs.dry_run }}
+        id: push
+        run: |
+          docker push "$IMAGE:$VERSION"
+          echo "ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$VERSION")" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        if: ${{ !inputs.dry_run }}
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.4.1
+
+      - name: Sign the digest with the project key, then verify it
+        if: ${{ !inputs.dry_run }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          REF: ${{ steps.push.outputs.ref }}
+        run: |
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY --tlog-upload=false "$REF"
+          cosign public-key --key env://COSIGN_PRIVATE_KEY > "$RUNNER_TEMP/cosign.pub"
+          cosign verify --key "$RUNNER_TEMP/cosign.pub" --insecure-ignore-tlog=true "$REF" > /dev/null
+          {
+            echo "### Signed and verified"
+            echo
+            echo "- Image: \`$REF\`"
+            echo "- Customers verify it with:"
+            echo
+            echo '```'
+            echo "cosign verify --key cosign.pub --insecure-ignore-tlog=true $REF"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
