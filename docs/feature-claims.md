@@ -17,12 +17,12 @@ type-resolved analysis, and never claim an agent capability beyond merged code.
 | Scans source for quantum-vulnerable public-key cryptography with pattern rules for Python, JavaScript/TypeScript, Go, Java/Kotlin, C#, Rust, Ruby, PHP, C/C++/Objective-C, Swift and Dart, plus `openssl`, `ssh-keygen` and `keytool` commands in shell, Dockerfiles, Makefiles and CI YAML | `quantsiv_scanner/rules.py`, `docs/scanner.md` coverage table (WP11) |
 | Reads PEM keys, certificates and OpenSSH public keys for algorithm and key size. Only the header line is kept, never key material | `quantsiv_scanner/keyfiles.py` (WP11) |
 | Probes a TLS endpoint with one handshake: protocol version, cipher suite, key-exchange group where the runtime exposes it, certificate key, expiry. Hosted scans cover only domains you verify with a DNS TXT record | `app/services/tls.py`, `domains.py`, `worker.scan_tls` (WP11). A probe, not a cipher-suite scan |
-| Emits a CycloneDX 1.6 CBOM, validated against the 1.6 schema, plus SARIF 2.1.0 and a ranked report | `app/services/cbom.py`, `quantsiv_scanner/outputs.py` (WP6, WP7) |
+| Emits a CycloneDX 1.6 CBOM that passes the 1.6 schema's strict validation in tests, plus SARIF 2.1.0 and a ranked report. Uploaded CBOMs are validated on receipt | `app/services/cbom.py`, `quantsiv_scanner/outputs.py` (WP6, WP7) |
 | Scores on two tracks: harvest-now-decrypt-later (HNDL) exposure by the confidentiality lifetime you declare in `quantsiv.yml`, and a separate signature-deadline track | `app/services/scoring.py` (WP6). Thresholds are Quantsiv's own documented rule, not a regulatory requirement |
 | Runs in your CI by default; only the CBOM and finding metadata reach Quantsiv | Decision D1; CLI, container and CI templates (WP7) |
-| Accepts any schema-valid CycloneDX 1.6 CBOM from any CI (for example CBOMkit's), records its producer, and exports the estate CBOM | `POST/GET /api/v1/cbom` (WP7) |
+| Accepts any schema-valid CycloneDX 1.6 CBOM from any CI records its producer, and exports the estate CBOM | `POST/GET /api/v1/cbom` (WP7) |
 | Compares a change with the latest default-branch upload of the repository and flags cryptography the change adds. The baseline's policy decides, so a change cannot excuse itself or switch the gate off; edits to the policy are listed in the verdict. Exceptions record a named approver and an expiry. The CI gate, the upload endpoint and the MCP tool give the same verdict | `quantsiv_scanner/policy.py`, `gate.py`, `ci.py` (WP10, WP12). Limits in section 2 |
-| Posts the verdict as a pull request comment, a check run and SARIF | `explainer.py`, `ci/github-actions/quantsiv.yml` (WP10) |
+| Writes the verdict as a pull request comment, check-run text and SARIF. The GitHub Actions template posts the comment and uploads SARIF to Code Scanning; the other templates keep the files as artifacts. Posting a GitHub check run needs the GitHub App (roadmap 1.2) | `explainer.py`, `ci/` templates (WP10) |
 | A read-only MCP server lets coding assistants ask the policy before they write crypto. It has no write tools and no model inside | `quantsiv mcp` (WP10); snapshot-tested tool contract |
 | Guidance per finding: ML-KEM (FIPS 203) as a hybrid with X25519, ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) | `PQC_GUIDANCE` in `scoring.py`. Findings whose use is unclassified say so instead |
 | Test code is reported but flagged | `quantsiv:test-code` property (PR #14) |
@@ -38,6 +38,8 @@ type-resolved analysis, and never claim an agent capability beyond merged code.
 | One-click or audit-ready compliance reports, PDF evidence packs | Planned (WP8 requirements). Today: CBOM, SARIF, `report.md`, `report.json` |
 | "AST-level" or type-resolved analysis | False. The rules are line patterns |
 | cbomkit-lib scanning, sslyze analysis | Not used. CBOMkit output is merged as data; TLS is Quantsiv's own probe |
+| Naming CBOMkit as a tested import | The merge is tested against a CBOMkit-shaped fixture only (`docs/scanner.md`). Run the action on a real repository before naming the integration. Say "any schema-valid CycloneDX 1.6 CBOM" |
+| "We publish our limits", or a link to them | The limits live in private documentation. State them on the page instead |
 | Marketplace GitHub Action | Not published (stealth). CI templates exist for GitHub Actions, GitLab, Jenkins and Azure DevOps |
 | Automated migration, generated pull requests, hybrid cipher deployment | Phase 2, not built. Agent decision D8 open |
 | SOC 2, ISO 27001, penetration tests, constant-time PQC implementations | None exist. Own cryptographic implementations also need CMVP (FIPS 140-3) validation before shipping |
@@ -75,13 +77,13 @@ that repo.
 | "Every finding carries a plain-English explanation and its recommended replacement" | Unclassified findings carry none | "Each finding carries the reason for its rank and, where the use is clear, the standard to migrate to" |
 | "Export a CycloneDX 1.6 CBOM and an audit-ready compliance report citing the authority" | Report not built | "Export a CycloneDX 1.6 CBOM, SARIF and a ranked report" |
 | "Continuous monitoring flags new quantum-vulnerable code the moment it is introduced" | The check runs per CI run, and enforcement needs the GitHub App's required check (1.2) | "A CI check flags cryptography that a change adds, and records exceptions with a named approver and an expiry". Do not write "enforces" or "blocks" until the GitHub App posts the check |
-| Capability "Source and TLS Detection": "AST-level scanning of Python, Java and Go via cbomkit-lib ... sslyze" | Wrong on engine, depth and languages | "Pattern-based detection across Python, JavaScript/TypeScript, Go, Java/Kotlin, C#, Rust, Ruby, PHP, C/C++, Swift, Dart and CI scripts, plus key and certificate files and a TLS endpoint probe. Limits are published" |
+| Capability "Source and TLS Detection": "AST-level scanning of Python, Java and Go via cbomkit-lib ... sslyze" | Wrong on engine, depth and languages | "Pattern-based detection across Python, JavaScript/TypeScript, Go, Java/Kotlin, C#, Rust, Ruby, PHP, C/C++, Swift, Dart and CI scripts, plus key and certificate files and a TLS endpoint probe. Limits are stated on the page" |
 | Capability "CI/CD Enforcement": "A GitHub Action" | Not published | "CI templates for GitHub Actions, GitLab, Jenkins and Azure DevOps, with SARIF for Code Scanning" |
 | Capability "Migration Guidance": "Concrete replacements for every finding" | Overclaim | "Guidance per finding: ML-KEM, ML-DSA or SLH-DSA, hybrid with X25519 during the transition" |
 | Capability "Audit-Ready Reporting" "One-click" | Not built | Remove until WP8 evidence packs exist, or label "planned" |
 | Timeline, NIST IR 8547: "RSA-2048 and P-256 are deprecated ... by 2030" | Wrong for P-256, and the document is an initial public draft | "NIST IR 8547 (initial public draft, Nov 2024): 112-bit-strength RSA and ECC such as RSA-2048 are deprecated after 2030; all quantum-vulnerable public-key algorithms, including P-256, are disallowed after 2035" |
 | Timeline, OMB M-26-15 and EO 14412 | Dates match CLAUDE.md. Check the EO quotation against the source text before keeping it | Keep dates; verify the quoted sentence |
-| "Quantsiv already emits CycloneDX 1.6 CBOMs, so alignment is a mapping exercise rather than a rebuild" | A forecast about guidance that is not published yet | "Quantsiv emits CycloneDX 1.6 CBOMs; CISA and NIST publish the minimum elements within 270 days of EO 14412 (about Mar 2027)" |
+| "Quantsiv already emits CycloneDX 1.6 CBOMs, so alignment is a mapping exercise rather than a rebuild" | A forecast about guidance that is not published yet | "Quantsiv emits CycloneDX 1.6 CBOMs; CISA, in coordination with NIST, publishes guidance on CBOM minimum elements within 270 days of EO 14412 (about Mar 2027)" |
 | "NSA CNSA 2.0 to a 2033 deadline" | One year hides the range | "exclusive-use dates between 2030 and 2033 depending on the category (verify against the current NSA advisory)" |
 | "contractors are pulled in through federal acquisition rules" | The FAR rule is proposed | "a proposed FAR rule for covered contractors" |
 | Standards ticker: "CISA PQC Guidance", "G7 Quantum Roadmap" | Not in the cited set | Keep only authorities you can cite; add the EU NIS Cooperation Group roadmap (23 Jun 2025, a recommendation: national strategies by end-2026, high-risk use cases by end-2030, as many systems as feasible by 2035) |
@@ -114,8 +116,9 @@ that repo.
   lifetimes and runs the same function as the gate.
 - Plain CycloneDX 1.6 in and out: import a CBOM from any tool, export the estate.
 - Key and certificate files, and a TLS probe of domains you prove you own.
-- Published limits: a link or short list of what the scanner does not cover builds trust with the
-  buyers this page is for.
+- Stated limits: a short list on the page of what the scanner does not cover builds trust with the
+  buyers this page is for. The detailed limits are private, so do not write "we publish" or link
+  to them.
 - US and EU framing: add the EU NIS Cooperation Group roadmap next to the US timeline.
 
 ## 6. Language coverage: what to say
@@ -154,18 +157,19 @@ and produces a CycloneDX 1.6 Cryptographic Bill of Materials."
 **Language line.** "Detects common cryptographic APIs in Python, JavaScript and TypeScript, Go,
 Java and Kotlin, C#, Rust, Ruby, PHP, C and C++, Objective-C, Swift and Dart, openssl, ssh-keygen
 and keytool commands in CI and shell scripts, and keys and certificates in PEM and SSH formats.
-Pattern-based, so depth varies by language. Read what we do not cover."
+Pattern-based, so depth varies by language and some calls are missed."
 
 **Capability cards.**
-1. *Cryptographic Bill of Materials.* "CycloneDX 1.6, validated against the schema. Import a CBOM
-   from any tool, for example CBOMkit, and export the whole estate as one."
+1. *Cryptographic Bill of Materials.* "CycloneDX 1.6 that passes the schema's strict validation.
+   Import a CBOM from any producer and export the whole estate as one."
 2. *Lifetime-aware ranking.* "Declare how long each kind of data must stay confidential.
    Encryption and key exchange are ranked by that lifetime. Signatures are tracked separately
    against the signature deadline, because their risk is forgery, not retroactive decryption."
-3. *Change check.* "Compare each build with the last and flag the cryptography a change adds. Set
-   policy per data class and record exceptions with a named approver and an expiry. Results
-   appear as a pull request comment, a check and SARIF in Code Scanning."
-4. *Runs in your CI.* "A container and CLI for GitHub Actions, GitLab, Jenkins and Azure DevOps.
+3. *Change check.* "Compare each build with the latest default-branch build and flag the
+   cryptography a change adds. Set policy per data class and record exceptions with a named
+   approver and an expiry. Results go to Code Scanning as SARIF and, with the GitHub Actions
+   template, to the pull request as a comment."
+4. *Runs in your CI.* "A container with templates for GitHub Actions, GitLab, Jenkins and Azure DevOps.
    Scanning works offline. Only the CBOM and finding metadata reach Quantsiv, and only if you
    upload."
 5. *Keys, certificates and TLS.* "Reads key and certificate files for algorithm and size. Probes
@@ -178,11 +182,14 @@ Pattern-based, so depth varies by language. Read what we do not cover."
    ML-KEM (FIPS 203), ML-DSA (FIPS 204) or SLH-DSA (FIPS 205), with hybrid key exchange during the
    transition."
 8. *Honest limits.* "Pattern matching misses aliased and dynamic calls, vendored code and
-   dependencies. We publish the list."
+   dependencies. We state the limits up front."
 
 Leave out "Audit-Ready Reporting" until evidence packs exist, or label it planned.
 
 ## 8. Keeping this in sync
+
+The public-safe version of these rules, with no strategy and no competitor names, is the
+landing repository's CLAUDE.md. Keep the two in step: this sheet is the master.
 
 When a work package lands or a claim changes, update sections 1 and 2 here first, then the landing
 page. Before any landing change ships, check it against sections 2 and 3.

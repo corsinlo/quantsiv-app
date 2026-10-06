@@ -27,7 +27,25 @@ pricing pages (the cloud sandbox cannot reach them). Confirm before you pay.
 | --- | --- | --- | --- |
 | **Railway** | 30-day trial with a small credit and no card; then Hobby from $5 a month, billed by usage, and Pro at $20 per seat | Yes: web, worker, Postgres and Redis in one project; `railway.toml` already exists | The recommended start. It cannot choose a Dockerfile target, so the worker uses the `ROLE` variable (below). Usage-based, so set a spending limit |
 | **Render** | Free web service that sleeps after inactivity; free Postgres that expires after 30 days; free Key Value of 25 MB without persistence | Only as a throwaway demo: the worker is paid (about $7 a month), and the free database disappears | Frankfurt region. Plans changed on 1 Aug 2026 (included bandwidth cut) |
+| **Google Cloud** | Always Free covers Cloud Run for the web service within a monthly quota (2 million requests, 180,000 vCPU-seconds, 360,000 GiB-seconds). There is no free Postgres or Redis, and the free VM exists only in three US regions. New accounts get a trial credit | Only with credits. The smallest Cloud SQL PostgreSQL instance is about $8 a month and Memorystore Redis about $36 a month for 1 GB (US prices; check the EU region). An always-on worker uses about 2.6 million vCPU-seconds a month, against 180,000 free | EU regions exist. More setup than Railway: IAM, a VPC connection for Redis, Artifact Registry, a deploy workflow. Startup credits are below |
 | **Hetzner Cloud VPS** | None | Yes: one 2 vCPU, 4 GB server (about 5.5 euro a month) runs all four parts under Docker Compose | German and Finnish regions, the strongest EU story. You run backups, updates and TLS. It also allows a no-network scan sandbox, which hosted scanning of private repos would need later (D1) |
+
+### Google Cloud and startup credits
+
+The free tier alone does not cover this app, because Postgres, Redis and an always-on worker have
+no free quota. Credits can: Google for Startups Cloud Program (cloud.google.com/startup), checked
+2026-10-06.
+
+| Tier | Credits | Who qualifies |
+| --- | --- | --- |
+| Start | up to $2,000 | Founded in the last 24 months, a working MVP, a clear business model, no Google Cloud credits beyond a free trial |
+| Scale | up to $100,000 in year one and 20% of up to $100,000 more in year two | Institutional equity funding from pre-seed to Series A; angel, friends-and-family, crowdfunding and grant money do not count |
+
+Rule: apply for Start now, and create nothing on Google Cloud until the answer arrives. If it is
+approved, Google Cloud is reasonable: the credits cover the database, Redis and the worker for
+many months. If it is refused, or you do not want to wait, use Railway. The Dockerfile works on
+both, and Google Cloud can build any target directly. Once credits are approved, tell me and I
+will write the Cloud Run deploy workflow, which needs your project and cannot be tested before.
 
 Recommendation: start on Railway Hobby with a spending limit, because the repository is already
 configured for it and scaling is a plan change. Move to a Hetzner server when a customer asks for
