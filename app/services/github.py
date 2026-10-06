@@ -35,7 +35,9 @@ class GitHubApp:
         settings = get_settings()
         now = int(time.time())
         payload = {"iat": now - 60, "exp": now + 540, "iss": settings.github_app_id}
-        return jwt.encode(payload, settings.github_app_private_key.get_secret_value(), "RS256")
+        # Hosts that keep a secret on one line store the PEM with literal \n sequences
+        key = settings.github_app_private_key.get_secret_value().replace("\\n", "\n")
+        return jwt.encode(payload, key, "RS256")
 
     async def installation_for_repo(self, repo_full_name: str) -> int | None:
         """The id of this app's installation on the repo, or None if the app can't access it."""

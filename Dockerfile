@@ -1,5 +1,9 @@
-# Two targets (A09): `docker build --target web .` and `docker build --target worker .`
-# TODO: pin both base images by digest once CI is green.
+# Three targets: web, worker and scanner (`docker build --target web .`, and so on).
+# Hosts that cannot choose a build target (Railway) build the last stage, `deploy`, which is
+# the web image unless ROLE says otherwise: `--build-arg ROLE=worker`, or a service variable
+# ROLE=worker. CI builds every target explicitly and checks both roles.
+# TODO: pin the base images by digest once CI is green.
+ARG ROLE=web
 
 FROM python:3.12-slim-bookworm AS web
 # Pango/HarfBuzz for WeasyPrint (PDF reports)
@@ -22,8 +26,8 @@ ENV PORT=8000
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --forwarded-allow-ips=\"${FORWARDED_ALLOW_IPS:-*}\""]
 
 FROM python:3.12-slim-bookworm AS worker
-# git for cloning; Java only here, for the scan engine (decision D2)
-RUN apt-get update && apt-get install -y --no-install-recommends git openjdk-17-jre-headless \
+# git for cloning. The scan engine is Python (decision D2), so no Java runtime is needed.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements-worker.txt .
@@ -53,3 +57,6 @@ USER scanner
 ENV PYTHONDONTWRITEBYTECODE=1
 ENTRYPOINT ["python", "-m", "quantsiv_scanner"]
 CMD ["--help"]
+
+# Default image for hosts without --target support. Keep this the last stage.
+FROM ${ROLE} AS deploy

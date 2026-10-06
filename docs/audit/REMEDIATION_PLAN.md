@@ -33,6 +33,7 @@ that changes.
 | WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
 | WP11 | Phase 1 coverage: C/C++, Swift, Dart rules; key and certificate files; TLS endpoint probe | done | #15 | Added after the founder asked to wrap Phase 1 (2026-10-05). TLS is a one-handshake probe, not a cipher-suite scan; hosted only for DNS-TXT-verified domains |
 | WP12 | Trustworthy change gate | done | #16 | Found 2026-10-06 while checking the product's claims against the code. A change is compared with the latest default-branch upload, the baseline's policy decides, and occurrences are counted. Limit: a pull request can edit its own workflow file, so real enforcement needs the GitHub App's required check (1.2) |
+| WP13 | Deployment readiness | in progress | #17 | Dockerfile role switch for hosts without build targets, worker Railway config, one-line PEM keys, release workflow with signing (dry run first), deploy and release runbooks. Nothing is deployed: the host, the domain and the GitHub App registration are the founder's |
 
 ## Founder decisions
 
@@ -474,3 +475,23 @@ reproduced with tests on 2026-10-06 before the fix:
 - `quantsiv gate --baseline` and the upload gate agree (the WP10 property test stays green).
 - `docs/feature-claims.md` section 2 states the remaining limits (workflow editing, moved files)
   in the same pull request.
+
+## WP13 - Deployment readiness (2026-10-06)
+Nothing is deployed, and a first look found the repository could not deploy as two services on
+Railway: Railway cannot choose a Dockerfile target, and a plain build produced the scanner image.
+- [x] `ARG ROLE` and a last stage `deploy`: a plain build is the web image, `ROLE=worker` gives the
+      worker image. CI builds both roles and checks the start command (`docker-role` job).
+- [x] `railway.worker.toml` for the worker (no health check, no migration step).
+- [x] The worker image no longer installs Java: the engine is Python (D2).
+- [x] A GitHub App private key stored on one line with literal `\n` works (test).
+- [x] `.env.example` lists `LEGAL_READY`.
+- [x] `.github/workflows/release-scanner.yml`: manual, dry run by default; builds the scanner
+      image, proves it scans offline, and on a real release pushes it to a private registry and
+      signs the digest with a project key, with no public transparency log.
+- [x] `docs/runbooks/deploy.md` (host choice, steps, variables, App settings, smoke test, who does
+      what) and `docs/runbooks/release-scanner.md` (signing, partner verification, the
+      Marketplace action at the stealth exit).
+- [ ] Founder: choose the host and the domain, register the GitHub App, generate the signing key
+      pair and add two secrets, run the dry release.
+- [ ] After the first deploy: fix what the smoke test finds, and set the scanner's default
+      server address (`DEFAULT_API` in `quantsiv_scanner/cli.py`) and the CI templates.
