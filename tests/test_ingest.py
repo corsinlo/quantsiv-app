@@ -98,10 +98,16 @@ def create_token(client, installation_id, name="ci") -> str:
     return re.search(r'id="new-token"[^>]*value="(qsv_[^"]+)"', response.text).group(1)
 
 
-def upload(client, token, body, repo="gina-org/payments"):
+def upload(client, token, body, repo="gina-org/payments", **build):
+    """Upload a CBOM. By default it is a default-branch build, which becomes the baseline; pass
+    `branch=`, `default_branch=` or `change=True` to say otherwise (WP12)."""
+    params = {"repository": repo, "branch": "main", "default_branch": "main"}
+    params.update({k: v for k, v in build.items() if v is not None})
+    if params.get("change") is True:
+        params["change"] = "true"
     return client.post(
         "/api/v1/cbom",
-        params={"repository": repo},
+        params=params,
         content=body,
         headers={"Authorization": f"Bearer {token}"},
     )

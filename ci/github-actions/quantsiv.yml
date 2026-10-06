@@ -26,12 +26,18 @@ jobs:
       - name: Scan
         env:
           QUANTSIV_TOKEN: ${{ secrets.QUANTSIV_TOKEN }}   # optional: enables upload and the gate
+          # Which build is this? Only a default-branch build becomes the baseline; a pull request
+          # is compared against it and never becomes one.
+          QUANTSIV_BRANCH: ${{ github.head_ref || github.ref_name }}
+          QUANTSIV_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          QUANTSIV_CHANGE: ${{ github.event_name == 'pull_request' }}
         run: |
           export QUANTSIV_STEP_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           UPLOAD=""
           if [ -n "$QUANTSIV_TOKEN" ]; then UPLOAD="--upload"; fi
           docker run --rm \
             -e QUANTSIV_TOKEN -e QUANTSIV_STEP_STARTED -e GITHUB_REPOSITORY \
+            -e QUANTSIV_BRANCH -e QUANTSIV_DEFAULT_BRANCH -e QUANTSIV_CHANGE \
             -v "$PWD:/src" -w /src "$QUANTSIV_IMAGE" \
             scan /src --out /src/quantsiv-out $UPLOAD
 

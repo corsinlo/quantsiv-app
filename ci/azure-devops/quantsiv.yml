@@ -1,5 +1,7 @@
 # Azure Pipelines template. Set QUANTSIV_IMAGE as a pipeline variable and QUANTSIV_TOKEN as a
-# secret variable (optional, enables upload and the gate).
+# secret variable (optional, enables upload and the gate). Also set QUANTSIV_DEFAULT_BRANCH to
+# your default branch: Azure does not expose it, and without it every upload is a candidate that
+# cannot become the baseline.
 steps:
   - checkout: self
     fetchDepth: 1
@@ -7,8 +9,16 @@ steps:
       export QUANTSIV_STEP_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
       UPLOAD=""
       if [ -n "$QUANTSIV_TOKEN" ]; then UPLOAD="--upload"; fi
+      # Which build is this? A pull request is compared against the baseline, never becomes one.
+      export QUANTSIV_BRANCH="${BUILD_SOURCEBRANCH#refs/heads/}"
+      export QUANTSIV_CHANGE=false
+      if [ "$BUILD_REASON" = "PullRequest" ]; then
+        export QUANTSIV_CHANGE=true
+        export QUANTSIV_BRANCH="${SYSTEM_PULLREQUEST_SOURCEBRANCH#refs/heads/}"
+      fi
       docker run --rm \
         -e QUANTSIV_TOKEN -e QUANTSIV_STEP_STARTED -e BUILD_REPOSITORY_NAME \
+        -e QUANTSIV_BRANCH -e QUANTSIV_DEFAULT_BRANCH -e QUANTSIV_CHANGE \
         -v "$(Build.SourcesDirectory):/src" -w /src "$(QUANTSIV_IMAGE)" \
         scan /src --out /src/quantsiv-out $UPLOAD
     displayName: Cryptography inventory (Quantsiv)

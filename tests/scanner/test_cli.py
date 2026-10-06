@@ -152,7 +152,13 @@ class FakeControlPlane:
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         return httpx.Response(
-            201, json={"scan_id": 7, "gate": self.gate, "new_quantum_vulnerable": ["X25519"]}
+            201,
+            json={
+                "scan_id": 7,
+                "gate": self.gate,
+                "baseline": True,
+                "new_quantum_vulnerable": ["X25519"],
+            },
         )
 
 
@@ -183,17 +189,23 @@ def test_upload_sends_the_cbom_with_the_token_from_the_environment(
             "--repository",
             "acme/sample",
             "--upload",
+            "--branch",
+            "main",
+            "--default-branch",
+            "main",
             "--api-url",
             "https://cp.example",
         ]
     )
     assert code == 0
     (request,) = control_plane.requests
-    assert str(request.url) == "https://cp.example/api/v1/cbom?repository=acme/sample"
+    assert str(request.url) == (
+        "https://cp.example/api/v1/cbom?repository=acme/sample&branch=main&default_branch=main"
+    )
     assert request.headers["authorization"] == "Bearer qsv_test_token"
     assert "qsv_test_token" not in str(request.url)
     assert json.loads(request.content)["specVersion"] == "1.6"
-    assert "uploaded as scan 7: gate pass" in capsys.readouterr().out
+    assert "uploaded as scan 7 (baseline): gate pass" in capsys.readouterr().out
 
 
 def test_failed_gate_fails_the_build_unless_no_gate(tmp_path, monkeypatch, control_plane):

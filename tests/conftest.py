@@ -24,6 +24,21 @@ os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or (
 )
 
 
+@pytest.fixture(autouse=True)
+def not_in_ci_build(monkeypatch):
+    """Tests run in CI, where the scanner would detect the real build's branch and event."""
+    for name in (
+        "GITHUB_ACTIONS",
+        "GITLAB_CI",
+        "TF_BUILD",
+        "JENKINS_URL",
+        "QUANTSIV_BRANCH",
+        "QUANTSIV_DEFAULT_BRANCH",
+        "QUANTSIV_CHANGE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database():
     from alembic import command

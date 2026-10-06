@@ -45,10 +45,11 @@ gates them on a per-repository policy**:
   The policy section of `quantsiv.yml` travels inside the CBOM (`quantsiv:policy`). Exceptions
   need a named approver and an expiry. `quantsiv mcp` is read-only (annotated and tested), has
   a snapshot-tested tool contract (`TOOLS_VERSION`), and logs calls to a local JSONL file.
-  Known gaps (WP12, todo): the upload gate's baseline is the latest upload of any branch, its
-  policy is read from the uploaded CBOM, approvers are not verified, and a second use of an
-  algorithm in an already-flagged file is not counted. Never call the gate enforced or
-  tamper-proof until WP12 lands;
+  The upload gate (WP12) compares a change with the latest default-branch upload, applies the
+  baseline's policy so a change cannot rewrite its own rules, and counts occurrences. Its
+  limits: a pull request can edit the workflow file that runs the scan, approver names are
+  records and not identity checks, and a moved file reads as removed and added. Never call the
+  gate "enforced" or "tamper-proof" before the GitHub App posts it as a required check (1.2);
 - `worker.record_results` scores engine findings on the dual track (`services/scoring.py`:
   HNDL by the lifetimes declared in the repo's `quantsiv.yml`, signature deadline otherwise),
   stores them, and stores a CycloneDX 1.6 CBOM (`services/cbom.py`);

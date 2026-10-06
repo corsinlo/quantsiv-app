@@ -21,7 +21,7 @@ type-resolved analysis, and never claim an agent capability beyond merged code.
 | Scores on two tracks: harvest-now-decrypt-later (HNDL) exposure by the confidentiality lifetime you declare in `quantsiv.yml`, and a separate signature-deadline track | `app/services/scoring.py` (WP6). Thresholds are Quantsiv's own documented rule, not a regulatory requirement |
 | Runs in your CI by default; only the CBOM and finding metadata reach Quantsiv | Decision D1; CLI, container and CI templates (WP7) |
 | Accepts any schema-valid CycloneDX 1.6 CBOM from any CI (for example CBOMkit's), records its producer, and exports the estate CBOM | `POST/GET /api/v1/cbom` (WP7) |
-| Compares each upload with the previous upload of the same repository and flags cryptography the change adds, under a per-repository policy. Exceptions record a named approver and an expiry. The CI gate, the upload endpoint and the MCP tool give the same verdict | `quantsiv_scanner/policy.py`, `gate.py` (WP10). Three known holes until WP12, listed in section 2 |
+| Compares a change with the latest default-branch upload of the repository and flags cryptography the change adds. The baseline's policy decides, so a change cannot excuse itself or switch the gate off; edits to the policy are listed in the verdict. Exceptions record a named approver and an expiry. The CI gate, the upload endpoint and the MCP tool give the same verdict | `quantsiv_scanner/policy.py`, `gate.py`, `ci.py` (WP10, WP12). Limits in section 2 |
 | Posts the verdict as a pull request comment, a check run and SARIF | `explainer.py`, `ci/github-actions/quantsiv.yml` (WP10) |
 | A read-only MCP server lets coding assistants ask the policy before they write crypto. It has no write tools and no model inside | `quantsiv mcp` (WP10); snapshot-tested tool contract |
 | Guidance per finding: ML-KEM (FIPS 203) as a hybrid with X25519, ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) | `PQC_GUIDANCE` in `scoring.py`. Findings whose use is unclassified say so instead |
@@ -42,7 +42,7 @@ type-resolved analysis, and never claim an agent capability beyond merged code.
 | Automated migration, generated pull requests, hybrid cipher deployment | Phase 2, not built. Agent decision D8 open |
 | SOC 2, ISO 27001, penetration tests, constant-time PQC implementations | None exist. Own cryptographic implementations also need CMVP (FIPS 140-3) validation before shipping |
 | Any claim about a customer, price, legal entity or availability date | Needs D4/D5 or the founder |
-| "Enforces", "blocks", "tamper-proof" or "audit-grade" change control | Three holes, reproduced with tests on 2026-10-06 (work package WP12): the baseline is the latest upload from any branch, so a failing pull request passes when CI re-runs; the policy is read from the uploaded CBOM, so a pull request can add an exception with an invented approver or switch the gate off; a second use of an algorithm in a file that already has one is not counted as new. Also, a pull request can edit its own workflow file, so a check inside that file is not enforcement. A required check posted by the GitHub App is |
+| "Enforces", "blocks", "tamper-proof" or "audit-grade" change control | Since WP12 a failing pull request fails again on re-run, a change cannot excuse itself, and a second use in a file counts. What remains: a pull request can edit the workflow file that runs the scan, so only a required check posted by the GitHub App (roadmap 1.2) is enforcement; approver names are records, not identity checks; a moved file reads as removed and added. Say "flags" or "gates", not "enforces" |
 | "Deep" Java or .NET analysis | Java has five JCA rules and C# three. No BouncyCastle, JWT-library, KeyFactory or SSLContext rules. CBOMkit, when merged, supplies more depth for Java |
 | Configuration-file coverage (nginx, Envoy, Terraform, Kubernetes, sshd) | Not built. Only crypto commands in CI scripts and PEM and SSH key files are read |
 | Supplier CBOM exchange, migration-progress views, evidence packs | Planned (roadmap 1.1 and 1.2) |
@@ -74,7 +74,7 @@ that repo.
 | "scored on two axes: cryptographic severity, and HNDL exposure" | Not the model | "Two tracks: HNDL exposure by how long the data must stay confidential, and a separate signature-deadline track. HNDL threatens encryption and key establishment; for signatures the risk is future forgery" |
 | "Every finding carries a plain-English explanation and its recommended replacement" | Unclassified findings carry none | "Each finding carries the reason for its rank and, where the use is clear, the standard to migrate to" |
 | "Export a CycloneDX 1.6 CBOM and an audit-ready compliance report citing the authority" | Report not built | "Export a CycloneDX 1.6 CBOM, SARIF and a ranked report" |
-| "Continuous monitoring flags new quantum-vulnerable code the moment it is introduced" | The check runs per CI run, and the gate has three known holes (WP12) | "A CI check flags cryptography that a change adds, and records exceptions with a named approver and an expiry". Do not write "fails the build", "enforces" or "blocks" until WP12 lands |
+| "Continuous monitoring flags new quantum-vulnerable code the moment it is introduced" | The check runs per CI run, and enforcement needs the GitHub App's required check (1.2) | "A CI check flags cryptography that a change adds, and records exceptions with a named approver and an expiry". Do not write "enforces" or "blocks" until the GitHub App posts the check |
 | Capability "Source and TLS Detection": "AST-level scanning of Python, Java and Go via cbomkit-lib ... sslyze" | Wrong on engine, depth and languages | "Pattern-based detection across Python, JavaScript/TypeScript, Go, Java/Kotlin, C#, Rust, Ruby, PHP, C/C++, Swift, Dart and CI scripts, plus key and certificate files and a TLS endpoint probe. Limits are published" |
 | Capability "CI/CD Enforcement": "A GitHub Action" | Not published | "CI templates for GitHub Actions, GitLab, Jenkins and Azure DevOps, with SARIF for Code Scanning" |
 | Capability "Migration Guidance": "Concrete replacements for every finding" | Overclaim | "Guidance per finding: ML-KEM, ML-DSA or SLH-DSA, hybrid with X25519 during the transition" |
@@ -106,7 +106,7 @@ that repo.
   naming a region).
 - The change check with recorded exceptions. It is the centre of the product (decision D6:
   cryptographic change control and CBOM evidence, complementary to posture platforms; it exports
-  and ingests plain CycloneDX). Word it as "flags", not "enforces", until WP12 lands.
+  and ingests plain CycloneDX). Word it as "flags", not "enforces", until the GitHub App posts it as a required check.
 - Lifetime-aware ranking and the separate signature track. It is the clearest difference from
   tools that rank by algorithm name.
 - The read-only MCP server for coding assistants. Describe what it does; do not rank it against

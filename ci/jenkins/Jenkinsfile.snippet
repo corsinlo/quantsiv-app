@@ -1,8 +1,14 @@
 // Add to a declarative pipeline. QUANTSIV_IMAGE is a pipeline parameter or environment
-// variable; QUANTSIV_TOKEN is a Jenkins credential (string), optional.
+// variable; QUANTSIV_TOKEN is a Jenkins credential (string), optional. Set
+// QUANTSIV_DEFAULT_BRANCH to your default branch: Jenkins does not expose it, and without it
+// every upload is a candidate that cannot become the baseline.
 stage('Cryptography inventory (Quantsiv)') {
     environment {
         QUANTSIV_STEP_STARTED = sh(script: 'date -u +%Y-%m-%dT%H:%M:%SZ', returnStdout: true).trim()
+        // Which build is this? A pull request is compared against the baseline, never becomes one.
+        // (Branch names reach the scanner as environment variables, never in a shell string.)
+        QUANTSIV_BRANCH = "${env.CHANGE_ID ? env.CHANGE_BRANCH : env.BRANCH_NAME}"
+        QUANTSIV_CHANGE = "${env.CHANGE_ID ? 'true' : 'false'}"
     }
     steps {
         withCredentials([string(credentialsId: 'quantsiv-token', variable: 'QUANTSIV_TOKEN')]) {
