@@ -34,7 +34,7 @@ Quantsiv clones a repository onto its own servers, exists for public repositorie
 ## Why private repositories stay off
 
 The limits above cannot cut the engine off from the network: dropping network access needs
-container-level isolation that the current host (Railway) does not provide to a process. A
+container-level isolation that the current host (Render; Railway is the same) does not provide to a process. A
 hostile repository could therefore make the engine talk to the network. For public code that
 risk is accepted; for customers' private code it is not.
 

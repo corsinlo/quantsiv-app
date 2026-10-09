@@ -2,6 +2,8 @@
 # Hosts that cannot choose a build target (Railway) build the last stage, `deploy`, which is
 # the web image unless ROLE says otherwise: `--build-arg ROLE=worker`, or a service variable
 # ROLE=worker. CI builds every target explicitly and checks both roles.
+# Render picks a file instead: ./Dockerfile.worker repeats the `worker` stage below (a test keeps
+# the two identical), so its worker needs no build argument.
 # TODO: pin the base images by digest once CI is green.
 ARG ROLE=web
 

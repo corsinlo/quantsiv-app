@@ -4,7 +4,7 @@ Limits applied here: wall-clock timeout, CPU seconds, address space, file size, 
 and a minimal environment. The tree it reads is a throwaway copy without .git.
 
 Not applied here: network isolation. A process cannot drop its own network access without
-privileges the hosting platform (Railway) does not grant. That is why hosted scanning is limited
+privileges a PaaS such as Render or Railway does not grant. That is why hosted scanning is limited
 to public repositories (D1, docs/hosted-scanning.md): private repositories are scanned only by
 the customer's own CI (WP7) until hosted scans can run in a network-less sandbox.
 """

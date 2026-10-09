@@ -15,7 +15,7 @@ from app.config import get_settings
 
 
 def async_url(url: str) -> str:
-    """Map a plain DATABASE_URL (as Railway provides it) to its async driver."""
+    """Map a plain DATABASE_URL (as Render and Railway provide it) to its async driver."""
     for prefix, driver in (
         ("postgres://", "postgresql+asyncpg://"),
         ("postgresql://", "postgresql+asyncpg://"),

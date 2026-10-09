@@ -13,3 +13,5 @@ pyyaml
 # DNS TXT check for domain verification (hosted TLS scans, A17)
 dnspython
 cryptography>=50
+# app/services/github.py and github_oauth.py import it; the worker could not start without it
+httpx

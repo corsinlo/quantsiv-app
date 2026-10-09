@@ -1,0 +1,81 @@
+# Render Blueprint for the control plane: web, worker, queue and database, all in Frankfurt
+# (EU region). Runbook: docs/runbooks/deploy.md.
+#
+# Before you apply this file, create the environment group `quantsiv-github` in the Render
+# Dashboard with the five GitHub App values (the runbook says how). Secrets never go in this
+# file, and Blueprints cannot hold prompted secrets in a shared group.
+services:
+  - type: web
+    name: quantsiv-web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # Migrations run on separate compute before the new version takes traffic
+    preDeployCommand: alembic upgrade head
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: quantsiv-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: quantsiv-queue
+          property: connectionString
+      - fromGroup: quantsiv-github
+
+  - type: worker
+    name: quantsiv-worker
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    # Render cannot choose a build target, so the worker has its own file: the Dockerfile's
+    # `worker` stage, repeated (a test keeps the two identical). It adds git, which hosted scans
+    # of public repositories need, and its CMD starts ARQ.
+    dockerfilePath: ./Dockerfile.worker
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: quantsiv-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: quantsiv-queue
+          property: connectionString
+      - fromGroup: quantsiv-github
+
+  # The job queue: noeviction, because evicting a key drops a job. Internal access only.
+  - type: keyvalue
+    name: quantsiv-queue
+    region: frankfurt
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: quantsiv-db
+    region: frankfurt
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+    databaseName: quantsiv
+    user: quantsiv
+    ipAllowList: [] # internal access only; add your own address in the Dashboard to use psql

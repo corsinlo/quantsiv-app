@@ -1,0 +1,16 @@
+# The worker image as a file of its own, for hosts that choose a Dockerfile by path and cannot
+# choose a build target (Render: render.yaml). It must stay identical to the `worker` stage of
+# ./Dockerfile; tests/test_render_blueprint.py fails when the two differ.
+FROM python:3.12-slim-bookworm
+# git for cloning. The scan engine is Python (decision D2), so no Java runtime is needed.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements-worker.txt .
+RUN pip install --no-cache-dir -r requirements-worker.txt
+COPY app/ ./app/
+# The worker runs the scan engine as a separate process (ScanPipeline.scan_source)
+COPY quantsiv_scanner/ ./quantsiv_scanner/
+RUN adduser --disabled-password --gecos '' appuser
+USER appuser
+CMD ["python", "-m", "arq", "app.worker.WorkerSettings"]
