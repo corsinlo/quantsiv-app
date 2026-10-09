@@ -33,7 +33,8 @@ that changes.
 | WP10 | Agent foundations: policy MCP server and gate explainer | done | #11 | No LLM anywhere in it. The eval harness has no results yet |
 | WP11 | Phase 1 coverage: C/C++, Swift, Dart rules; key and certificate files; TLS endpoint probe | done | #15 | Added after the founder asked to wrap Phase 1 (2026-10-05). TLS is a one-handshake probe, not a cipher-suite scan; hosted only for DNS-TXT-verified domains |
 | WP12 | Trustworthy change gate | done | #16 | Found 2026-10-06 while checking the product's claims against the code. A change is compared with the latest default-branch upload, the baseline's policy decides, and occurrences are counted. Limit: a pull request can edit its own workflow file, so real enforcement needs the GitHub App's required check (1.2) |
-| WP13 | Deployment readiness | in progress | #17 | Dockerfile role switch for hosts without build targets, worker Railway config, one-line PEM keys, release workflow with signing (dry run first), deploy and release runbooks. Nothing is deployed: the host, the domain and the GitHub App registration are the founder's |
+| WP13 | Deployment readiness | done | #17 | Dockerfile role switch for hosts without build targets, worker Railway config, one-line PEM keys, release workflow with signing (dry run first), deploy and release runbooks. Nothing is deployed: the host, the domain and the GitHub App registration are the founder's |
+| WP14 | Render deployment | done | #19 | The founder chose Render (D3, 2026-10-09). `render.yaml` Blueprint (web, worker, Key Value, Postgres in Frankfurt), `Dockerfile.worker`, the worker lock missing `httpx` (the worker could not start; CI now imports both apps inside their images), runbook and checklist rewritten for Render. Nothing is deployed until the founder runs the steps |
 
 ## Founder decisions
 
@@ -50,7 +51,7 @@ Cooperation Group) authorities, and must keep both.
 | --- | --- | --- | --- |
 | D1 | Delivery model | **Confirmed 2026-10-04.** Local-first scanner (CLI plus container) runs in the customer's CI, so code never leaves. Only the CBOM goes to an EU-hosted, metadata-only control plane (self-hosted later). Server-side cloning stays only for public repos and demos. See `quantsiv.md`, "Delivery model". Local-first is the default, not a permanent limit: hosted scanning of private repos may be offered later as an opt-in, once a network-less sandbox (A16) and the compliance work (security certification, DPA, EU processing) are funded. | WP7 (unblocked); shapes WP5 |
 | D2 | Scan engine | **Confirmed 2026-10-04, as recommended, with the faster route:** no Java wrapping at all. (1) Quantsiv's own rules engine (`quantsiv_scanner`, pure Python, pattern-based) is the first engine; it covers the gaps named here (PyCryptodome, Go, JS/TS) and more, runs in the CLI and, through the sandbox, in the hosted worker. (2) CBOMkit comes in as *data*: the CI template runs CBOMkit-action (Apache-2.0, Java/Python/Go) before `quantsiv scan`, which merges its `cbom/cbom.json`, and the upload path already accepts any CycloneDX 1.6 CBOM. The original text: Ingest CBOMs from CBOMkit's published CI tooling run after the customer's build, plus your own rules for gaps (PyCryptodome, Go, JS/TS). Wrap `cbomkit-lib` (Java library, Java and Python only) in a pinned fat jar only if hosted scanning stays. | WP5 engine step (done), WP7 scanner half |
-| D3 | Hosting and region | Railway (or Render), EU region, Postgres (not a shared SQLite file, A51) | WP4 deploy |
+| D3 | Hosting and region | **Confirmed 2026-10-09: Render**, Frankfurt, Postgres (not a shared SQLite file, A51), described by `render.yaml` (WP14). Railway's files stay as the alternative; Hetzner is the move when a customer asks for a European provider or private-repo scanning needs a network-less sandbox. Render is a US company: say "hosted in the EU (Frankfurt)", never "European provider". | WP4 deploy (unblocked) |
 | D4 | Legal identity | Entity name, registered address, KvK and VAT numbers, privacy contact email **Needed from the founder:** legal entity name and form; country of incorporation (the plan assumed a Dutch entity: confirm, since the US is also a target market); registered address; company registration number (KvK or equivalent) and VAT number; privacy contact email and whether a DPO is appointed; the hosting provider and region (for the privacy policy's recipients list); which e-mail and payment providers will be used. | WP8 content, footer |
 | D5 | Packaging and pricing | To be validated with design partners. The proposals live in `quantsiv.md`, "Pricing". **Needed from the founder:** the tier names and what each includes (repositories, seats, retention, support); the price per tier, its currency and billing period (monthly/annual); the free tier's limits and any trial; whether prices are shown ex- or including VAT, and for which countries; the refund and cancellation terms; the renewal terms. | WP8 pricing display; billing |
 | D6 | Competitive positioning | Complementary to posture platforms (QIZ Security, Wiz for PQC Readiness): export and ingest CycloneDX, build no runtime or cloud inventory before Phase 3, and never use the label "cryptographic posture management". See `quantsiv.md`, "Posture platforms". | Nothing blocked; shapes the WP7 interoperability scope and the copy |
@@ -491,7 +492,29 @@ Railway: Railway cannot choose a Dockerfile target, and a plain build produced t
 - [x] `docs/runbooks/deploy.md` (host choice, steps, variables, App settings, smoke test, who does
       what) and `docs/runbooks/release-scanner.md` (signing, partner verification, the
       Marketplace action at the stealth exit).
-- [ ] Founder: choose the host and the domain, register the GitHub App, generate the signing key
-      pair and add two secrets, run the dry release.
+- [ ] Founder: choose the host (done: Render, WP14) and the domain, register the GitHub App,
+      generate the signing key pair and add two secrets, run the dry release.
 - [ ] After the first deploy: fix what the smoke test finds, and set the scanner's default
       server address (`DEFAULT_API` in `quantsiv_scanner/cli.py`) and the CI templates.
+
+## WP14 - Render deployment (2026-10-09)
+The founder chose Render over Railway (D3). Nothing is deployed; this package makes the first
+deploy a matter of following `docs/runbooks/deploy.md`.
+- [x] `render.yaml`: web, worker, Key Value (queue, `noeviction`) and Postgres 16, all in
+      Frankfurt, internal access only. Secrets are never written in the file: Render generates
+      `SESSION_SECRET`, the connection strings come from the database and the queue, and the five
+      GitHub App values come from the environment group `quantsiv-github`.
+- [x] `Dockerfile.worker`: the worker stage as its own file, because Render cannot choose a build
+      target and may not pass the `ROLE` build argument. A test keeps it identical to the stage.
+- [x] `tests/test_render_blueprint.py`: references resolve, every required setting is provided,
+      no secret in the file, migrations only on the web service, the worker file matches the
+      Dockerfile, the queue never evicts, and the runbook names the group and its keys.
+- [x] The worker lock lacked `httpx`, which `app/services/github.py` imports, so the worker image
+      could not start and no check noticed. Fixed in `requirements-worker.in` (re-locked), and the
+      CI `docker` job now imports `app.main` and `app.worker` inside the web and worker images.
+- [x] Runbook and founder checklist rewritten for Render; Railway steps kept as the alternative;
+      costs, credits and the "Render is a US company" wording rule recorded.
+- [ ] Not verified: Render's own Blueprint validator and plan prices (the cloud sandbox cannot
+      reach Render). The first apply is the test; send the log of anything it rejects.
+- [ ] Founder: create the Render account and the `quantsiv-github` group, apply the Blueprint,
+      register the GitHub App with the `onrender.com` address, fill the values, run the smoke test.

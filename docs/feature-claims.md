@@ -104,8 +104,9 @@ that repo.
 ## 5. Worth adding to the landing page (all merged)
 
 - The delivery model in one sentence: scanning runs in your CI by default; metadata only reaches
-  an EU-hosted control plane (hosting provider decision D3 is still open, so confirm before
-  naming a region).
+  an EU-hosted control plane. D3 is decided (Render, Frankfurt), but nothing runs there yet: say
+  "EU-hosted" only after the first deploy, and never "European provider" or "sovereign" (Render is
+  a US company).
 - The change check with recorded exceptions. It is the centre of the product (decision D6:
   cryptographic change control and CBOM evidence, complementary to posture platforms; it exports
   and ingests plain CycloneDX). Word it as "flags", not "enforces", until the GitHub App posts it as a required check.

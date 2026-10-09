@@ -61,10 +61,15 @@ gates them on a per-repository policy**:
   `LEGAL_READY=true`, which waits for D4 and counsel. Never write legal text without D4. The
   erasure flow (`docs/runbooks/erasure.md`, `worker.purge_installation`, `delete_account`) is
   built;
-- nothing is deployed and no image is published. `docs/runbooks/deploy.md` and
-  `docs/runbooks/release-scanner.md` hold the steps and say what only the founder can do (host,
-  domain, GitHub App registration, signing key). The Dockerfile's last stage is the web image
-  unless `ROLE=worker`, because Railway cannot choose a build target;
+- nothing is deployed and no image is published. The founder chose **Render** (Frankfurt, D3,
+  2026-10-09): `render.yaml` describes web, worker, Key Value and Postgres, and a test
+  (`tests/test_render_blueprint.py`) keeps it consistent with the code. `docs/runbooks/deploy.md`,
+  `docs/runbooks/founder-checklist.md` and `docs/runbooks/release-scanner.md` hold the steps and
+  say what only the founder can do (account, GitHub App registration, domain, signing key). The
+  worker has its own `Dockerfile.worker` for Render (a test keeps it identical to the Dockerfile's
+  `worker` stage); the Dockerfile's last stage is the web image unless `ROLE=worker`, for Railway,
+  which stays as the alternative. Render is a US company: write "hosted in the EU (Frankfurt)",
+  never "European provider" or "sovereign";
 - the Docker build is checked by the CI `docker` job only (the cloud VM's network policy blocks
   `deb.debian.org`).
 

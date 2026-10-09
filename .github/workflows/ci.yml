@@ -94,6 +94,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build --target ${{ matrix.target }} -t quantsiv-${{ matrix.target }} .
+      - name: The image can import the code it runs (the worker once lacked httpx and CI never knew)
+        if: matrix.target != 'scanner'
+        run: |
+          module=app.main; [ "${{ matrix.target }}" = worker ] && module=app.worker
+          docker run --rm --entrypoint python \
+            -e ENV=test -e GITHUB_APP_ID=1 -e GITHUB_APP_PRIVATE_KEY=x -e GITHUB_WEBHOOK_SECRET=x \
+            -e GITHUB_CLIENT_ID=x -e GITHUB_CLIENT_SECRET=x -e SESSION_SECRET=x \
+            quantsiv-${{ matrix.target }} -c "import $module"
       - name: Worker image can run the engine (what ScanPipeline.scan_source executes)
         if: matrix.target == 'worker'
         run: |
