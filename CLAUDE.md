@@ -5,13 +5,14 @@ stealth. This repository is the product app (FastAPI + ARQ + Jinja2/htmx) and it
 The marketing site is the separate, **public** repo `quantsiv-landing`. The strategy docs
 (roadmap, pitch, whitepaper) live outside both repos. This repo carries what code work needs:
 `quantsiv.md` (narrative, delivery model, pricing proposal) and `quantsiv_mvp_spec.md` (build
-spec, revision 1.1).
+spec, revision 1.2).
 
-## Current state (2026-10-05)
+## Current state (2026-10-10)
 
 WP0-WP7, WP9 and WP10 have landed (PRs #2-#11), WP8's buildable half (legal routes as
 placeholders, erasure) in #12 (its content waits for D4/D5), and WP11 (Phase 1 coverage: C/C++,
-Swift and Dart rules, key and certificate files, TLS probe) in #15. D1, D2 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
+Swift and Dart rules, key and certificate files, TLS probe) in #15, WP12 (change gate) in #16,
+WP13 (deployment readiness) in #17 and WP14 (Render) in #19. D1, D2, D3 and D7 are confirmed. The app **signs users in with GitHub, stores installations,
 scans public repositories with Quantsiv's own rules engine, takes CBOM uploads from any CI, and
 gates them on a per-repository policy**:
 - `uvicorn app.main:app` serves `/health` and the dashboard pages, which show only stored data
@@ -113,7 +114,8 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
   Tailwind, run `npm ci && npm run build` and commit `app/static/`. CI fails if they drift. No
   inline scripts or styles: the CSP forbids them.
 - Markets: the US and the EU (founder, 2026-10-04). Cite both US and EU authorities; the control
-  plane is EU-hosted; US data residency is an open question for the first US customer.
+  plane will be hosted in the EU (Render, Frankfurt; not deployed yet); US data residency is an
+  open question for the first US customer.
 - Dependencies: edit the `requirements*.in` files, then re-lock with the `uv pip compile` command
   in each file's header (hashes, Python 3.12). Never hand-edit the `.txt` locks.
 
@@ -155,7 +157,8 @@ installs `requirements.txt` and `requirements-dev.txt` automatically.
 
 - **Scanning happens in the customer's environment.** A local-first scanner (`quantsiv scan`
   CLI plus a signed container) runs in the customer's CI (GitHub Actions, GitLab, Jenkins via a
-  container step, Azure DevOps) after their build. Source code never leaves the customer.
+  container step, Azure DevOps) after their build. Source code stays in the customer's CI by
+  default.
 - **Quantsiv hosts only metadata.** An EU-hosted control plane receives only the CBOM and
   finding metadata, and can later be self-hosted or air-gapped.
 - **Server-side cloning is for public repos and demos only.** The spec's GitHub App flow is

@@ -3,6 +3,11 @@
 **Version 1.0 | September 2026 | Solo Founder Document**
 **Revision 1.1 | 3 October 2026**: corrections from the code and compliance audit. Read this
 block first. Where it conflicts with the text below, this block wins.
+**Revision 1.2 | 10 October 2026**: decisions since 1.1. D1 (local-first delivery) is confirmed.
+D2 is confirmed: Quantsiv's own pattern-rules engine (`quantsiv_scanner`) is the engine, CBOMkit's
+CBOM is merged as data, and the TLS probe is Quantsiv's own, so there is no `cbomkit-lib` wrapper
+and no sslyze. D3 is Render, Frankfurt. Copy below that says "one-click", "agentless", "auto-fix"
+or "code never leaves" is historical; `docs/feature-claims.md` holds the wording to use.
 
 ---
 

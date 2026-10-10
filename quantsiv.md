@@ -1,4 +1,4 @@
-# Quantsiv — Quantum Risk Management Platform
+# Quantsiv — Cryptographic Change Control and CBOM Evidence
 
 ## The Name
 
@@ -20,24 +20,24 @@ When asked about our name, we explain:
 
 ## The One-Liner
 
-> *Quantsiv inventories the quantum-vulnerable cryptography in your code and TLS endpoints, ranks it by how long your data must stay secret, and turns it into regulator-ready CBOM evidence. The scanning runs in your pipeline, so your code never leaves.*
+> *Quantsiv finds quantum-vulnerable cryptography in your code, ranks it by how long your data must stay secret, and flags the changes that add more. Scanning runs in your CI by default and produces a CycloneDX 1.6 Cryptographic Bill of Materials.*
 
-**Category:** DevSecOps / Cryptographic Agility / PQC Compliance  
-**Business type:** B2B (proposed, decision D1). An open-core local scanner, plus an EU-hosted, metadata-only CBOM evidence control plane that can be self-hosted later. See "Delivery model".  
-**Status (2026-10-03):** pre-launch and in stealth. The app is a skeleton; see `docs/audit/` in this repo.  
+**Category:** cryptographic change control and CBOM evidence (DevSecOps, PQC; decision D6)  
+**Business type:** B2B (decision D1, confirmed 2026-10-04). An open-core local scanner, plus a metadata-only CBOM evidence control plane to be hosted in the EU (Render, Frankfurt; D3) that can be self-hosted later. See "Delivery model".  
+**Status (2026-10-10):** pre-launch and in stealth. The scanner, CBOM pipeline, change check and control plane are built and tested; nothing is deployed. The README's table is the detail.  
 **Primary domain:** quantsiv.io (+ .com, .net, .xyz, .store, .info, .online as redirects)
 
 ---
 
 ## The Threat — Why This Market Exists
 
-Almost everything secure on the internet today — bank logins, HTTPS connections, API authentication, encrypted emails, VPN tunnels, digital signatures — is protected by three algorithms: **RSA, ECDSA, and Diffie-Hellman**. They work because factoring very large numbers is computationally impossible for classical computers.
+Most of what secures the internet today — bank logins, HTTPS connections, API authentication, encrypted emails, VPN tunnels, digital signatures — relies on three algorithms: **RSA, ECDSA, and Diffie-Hellman**. They work because factoring very large numbers is computationally impossible for classical computers.
 
 A sufficiently powerful quantum computer running **Shor's algorithm** would break RSA, ECC and Diffie-Hellman. No such machine exists today. Arrival estimates vary (NIST, Aug 2024: "some experts predict ... within a decade"), so quote a forecast only with its source.
 
 Current quantum computers can't do this yet. But the active threat is happening now:
 
-> **"Harvest now, decrypt later."** State actors and sophisticated adversaries are capturing and storing encrypted internet traffic today. They can't read it yet. When quantum computers mature, they decrypt everything they stored. Your 2026 financial records, medical data, or trade secrets could become readable once a cryptographically relevant quantum computer exists (NIST, Aug 2024: "some experts predict ... within a decade").
+> **"Harvest now, decrypt later."** State actors and sophisticated adversaries are capturing and storing encrypted internet traffic today. They can't read it yet. When quantum computers mature, they can decrypt what they stored. Your 2026 financial records, medical data, or trade secrets could become readable once a cryptographically relevant quantum computer exists (NIST, Aug 2024: "some experts predict ... within a decade").
 
 Data that must stay confidential for 10+ years is already at risk if it is captured today and a cryptographically relevant quantum computer arrives within that window.
 
@@ -67,7 +67,7 @@ primary source.
   deprecated in 2030. The same draft states that symmetric primitives with at least 128 bits of
   security, such as AES-128, meet NIST's Category 1, so they are not "quantum-vulnerable".
 
-**US federal mandates — the deadlines are binding.**
+**US federal requirements — binding on federal agencies, not on private companies.**
 
 - **Executive Order 14412** ("Securing the Nation Against Advanced Cryptographic Attacks"),
   signed **22 June 2026**, published at 91 FR 38483. Names harvest-now-decrypt-later
@@ -124,10 +124,8 @@ The industry is moving faster than the federal 2030/2031 dates, especially on si
 
 **The wedge for Quantsiv:** EO 14412 makes CBOM minimum elements a federal deliverable due around
 March 2027, and M-26-15 says agencies' automated inventories should populate a central CBOM.
-Quantsiv is **built to** emit CycloneDX 1.6 CBOMs. A reference generator passes CycloneDX 1.6
-strict-schema validation, and it ships in remediation work package WP6. Until then, never say
-"already emits". Once it ships, alignment with the minimum elements is a mapping exercise, not a
-rebuild.
+Quantsiv emits CycloneDX 1.6 CBOMs that pass strict-schema validation (WP6, WP7). The minimum
+elements are not published yet, so make no claim about alignment with them until they are.
 
 **Stats to verify before external use.** The following figures appear in earlier drafts and
 are not yet sourced; confirm or drop them before they go in a deck: "only 5% of enterprises
@@ -160,19 +158,19 @@ A mid-size company might have 400 certificates across 80 subdomains, 12 backend 
 
 ## What Quantsiv Does — Product Modules
 
-> Status: every module below is **planned**. None of them is built yet; the README in this repo
-> holds the built/planned table, which is the single source of truth.
+> Status: modules 1, 2, 4 and 5 are built in their Phase 1 form (pattern rules, key and
+> certificate files, a TLS probe, dual-track scoring and the change check). Modules 3 and 6 are
+> planned. The README's built/planned table is the single source of truth.
 
 ### 1. Code Scanner
-Finds uses of quantum-vulnerable algorithms in source code. The first engine is IBM's CBOMkit
-library (`cbomkit-lib`, now under the Linux Foundation's PQCA), which supports **Java and
-Python**: on Python, pyca/cryptography only; on Java, best results come from scanning after the
-build. Quantsiv's own rules fill the gaps, starting with PyCryptodome. Go, JavaScript/TypeScript
-and C/C++ come later, added as design partners need them. Examples:
+Finds uses of quantum-vulnerable algorithms in source code with Quantsiv's own pattern rules
+(`quantsiv_scanner`, decision D2) for Python, JavaScript and TypeScript, Go, Java and Kotlin, C#,
+Rust, Ruby, PHP, C and C++, Objective-C, Swift and Dart, plus openssl, ssh-keygen and keytool
+commands in CI and shell scripts. CBOMkit's CBOM is merged as data when its action runs first.
+Coverage and limits: `docs/scanner.md`. Examples:
 - `RSA.generate(2048)` in Python
 - `new RSAKeyPairGenerator()` in Java
 - `crypto.createSign('SHA256withRSA')` in Node
-- Config files specifying `algorithm: RSA`
 
 ### 2. Certificate Scanner
 Inspects the TLS handshake and certificates of endpoints the customer declares and has verified
@@ -252,7 +250,7 @@ Each obligation shows its source and its status. The pack also includes:
 
 | Tool | Who | What it does | Notes |
 |---|---|---|---|
-| CBOMkit (`cbomkit-lib`, sonar-cryptography, CBOMkit GitHub Action) | IBM, donated to the Linux Foundation's PQCA; Apache-2.0 | Generates CBOMs from Java and Python code; ships a GitHub Action and a SonarQube plugin | Quantsiv's first engine. Detection is commoditising: do not compete on it |
+| CBOMkit (`cbomkit-lib`, sonar-cryptography, CBOMkit GitHub Action) | IBM, donated to the Linux Foundation's PQCA; Apache-2.0 | Generates CBOMs from Java and Python code; ships a GitHub Action and a SonarQube plugin | Merged as data when its action runs first (D2). Detection is commoditising: do not compete on it |
 | CodeQL PQC/CBOM work | GitHub | Queries that locate cryptography for PQC migration | Free on GitHub; the same commoditisation pressure |
 | pqcscan, pqc-scan, cryptoscan | Various | Endpoint or repo scanners, some emitting CBOM/SARIF | Unverified details; verify before citing externally |
 | qsafe (PQC Posture Scanner) | Independent; MIT; PyPI 1.2.0, 26 Mar 2026 | Regex scan of Python, JS/TS, Java, Go, Rust, Ruby, PHP, C/C++, shell, plus YAML, TOML and Terraform; flags test versus production code; CBOM 1.6, SARIF, a GitHub Action that comments on pull requests, `--fail-on` thresholds, an MCP server | The same shape as our scanner, with config files we lack |
@@ -317,8 +315,8 @@ existed, and nothing in between served the developer who wanted a CI step and a 
 built a multi-billion-dollar business in that gap. (It was not sold to Broadcom; avoid that
 claim.)
 
-**Quantsiv is not inventing the scanner, and it does not compete for runtime inventory. It wraps
-open detectors and sells what detectors and posture platforms lack: data-lifetime and
+**Quantsiv does not compete on detection or runtime inventory. It merges open detectors' CBOMs
+and sells what detectors and posture platforms lack: data-lifetime and
 signature-deadline prioritisation, change control on cryptography, regulator-mapped CBOM evidence,
 and supplier CBOM exchange.**
 
@@ -392,12 +390,13 @@ estate to inventory and no deadline that forces a purchase.
   - It runs in the customer's CI after their build: GitHub Actions, GitLab CI, Jenkins via a
     container step, or Azure DevOps. It can also run on a host inside their network to reach
     internal TLS endpoints.
-  - It wraps CBOMkit and sslyze, plus Quantsiv's own rules.
-  - It writes a CycloneDX 1.6 CBOM, SARIF and an HNDL report, all locally. **Source code never
-    leaves the customer.**
+  - It runs Quantsiv's own rules and TLS probe, and merges CBOMkit's CBOM when that action ran
+    first.
+  - It writes a CycloneDX 1.6 CBOM, SARIF and a ranked report, all locally. **Scanning runs in
+    the customer's CI by default, so source code stays there.**
 - **Control plane (Quantsiv's side; paid).**
-  - EU-hosted, and it receives only CBOMs and finding metadata. Code snippets are off by
-    default.
+  - Hosted in the EU (Render, Frankfurt; D3), and it receives only CBOMs and finding metadata.
+    Code snippets are off by default.
   - It provides an estate-wide CBOM, diffs between scans, policy gates on the delta, and HNDL
     prioritisation driven by declared data lifetimes.
   - It produces evidence packs mapped to named obligations: the CISA/NIST CBOM minimum elements
@@ -470,7 +469,8 @@ as a hosted monolith.
 
 ## Agent layer (decision D7, confirmed 2026-10-04)
 
-> Status: planned. Nothing in this section is built. The README status table is the single
+> Status: A1 (the read-only policy MCP server) and A2 (the gate explainer) are built (WP10), with
+> no LLM. Everything else in this section is planned. The README status table is the single
 > source of truth.
 
 **Rule: agents propose, the pipeline verifies, a human approves.**
@@ -525,7 +525,7 @@ as a hosted monolith.
 | A7 Inventory reconciler | Merges imported runtime inventories (Wiz export, Google Cloud KMS PQC insights, CycloneDX) into the estate graph | Read-only; ambiguous matches need a human | Phase 3 |
 | A8 Agility planner | Recommends an algorithm per use case from constraint tables, and plans staged rollouts with rollback | A named person approves each stage | Phase 3 |
 
-**Moat.** None of it exists yet; each part starts with the first design partner.
+**Moat.** None of it exists at scale yet; each part starts with the first design partner.
 - **CBOM history.** A CBOM on every merge, per organisation, which creates switching cost.
 - **Migration-pattern corpus.** Code-free records of human-approved outcomes, kept under opt-in
   (D9). It cannot be scraped from GitHub.
@@ -564,7 +564,7 @@ MCP servers and "agents" by themselves are table stakes.
   checks them."
 
 **Do not claim:**
-- that anything here is built;
+- that anything beyond A1 and A2 is built;
 - "first" or "only" MCP server for cryptography;
 - "only tool that scores by data lifetime";
 - "auto-fix", "self-healing" or "autonomous migration";
@@ -622,9 +622,9 @@ MCP servers and "agents" by themselves are table stakes.
 - **AWS / Azure Marketplace** — listing for enterprise inbound
 
 ### Keyword split (intentional)
-- **Website hero / enterprise:** "Quantum Risk Management Platform" (CISOs landing from LinkedIn/ads)
+- **Website hero / enterprise:** "Cryptographic change control and CBOM evidence" (CISOs landing from LinkedIn/ads)
 - **Docs / GitHub / ProductHunt:** "PQC scanner for your codebase" (engineers Googling)
-- **Sales deck:** Platform framing throughout
+- **Sales deck:** change-control and CBOM-evidence framing throughout
 
 ---
 
@@ -632,14 +632,13 @@ MCP servers and "agents" by themselves are table stakes.
 
 The early build plan that used to be here (a Python AST and regex scanner) is superseded. The
 current sources are:
-- `quantsiv_mvp_spec.md`: the build spec, at revision 1.1.
-- `docs/audit/REMEDIATION_PLAN.md`: the ordered work packages WP0-WP10, which turn today's
-  skeleton into a working, secure app and then into the local runner (WP7).
+- `quantsiv_mvp_spec.md`: the build spec, at revision 1.2.
+- `docs/audit/REMEDIATION_PLAN.md`: the ordered work packages WP0-WP14; all but WP8's legal
+  content have landed.
 
 Open-source building blocks:
-- CBOMkit (`cbomkit-lib`, the CBOMkit GitHub Action, sonar-cryptography), for detection.
+- CBOMkit's GitHub Action, whose CBOM the scanner merges as data (D2).
 - `cyclonedx-python-lib` ≥ 7 (currently 11.x), for CBOM output.
-- sslyze, for TLS.
 - Open Quantum Safe `liboqs` and the OpenSSL 3 providers, as reference PQC implementations for
   test fixtures. Never ship them as our own cryptography.
 
@@ -652,9 +651,9 @@ landing page and pitch deck present, and it is sequenced against the regulatory 
 rather than against engineering convenience. (The full roadmap is a local-only strategy document kept outside this repo; this section is the in-repo summary.)
 
 **Phase 1 — Audit (now → 2027).** A local scanner runs in customer CI and maps the
-cryptographic footprint of every application. It prioritises HNDL exposure from declared data
-lifetimes, and emits a CBOM aligned to the CISA/NIST minimum-element guidance expected around
-March 2027. Milestones:
+cryptographic footprint of each application. It prioritises HNDL exposure from declared data
+lifetimes, and emits a CycloneDX 1.6 CBOM, to be aligned with the CISA/NIST minimum-element
+guidance once it is published (expected around March 2027). Milestones:
 - 1.0 (Q4 2026 to Q1 2027): local scanner plus design partners. Then agent foundations (WP10):
   the read-only policy MCP server (A1) and the gate explainer (A2), neither using an LLM.
 - 1.1 (H1 2027): control plane and evidence packs. Plus a design-partner preview of the lifetime
@@ -666,10 +665,10 @@ March 2027. Milestones:
 *Regulatory anchor: EO 14412 / M-26-15 discovery phase; CBOM minimum elements; the EU roadmap's
 end-2026 national strategies.*
 
-**Phase 2 — Migrate (2027 → 2028).** Close the loop from finding to fix: automated migration of
-vulnerable cryptographic dependencies, hybrid ciphers running classical and post-quantum
-algorithms in parallel for backward compatibility, generated pull requests with diffs and
-cited rationale, and rapid validation suites proving nothing broke. Every PR runs in the
+**Phase 2 — Migrate (2027 → 2028).** Close the loop from finding to fix: suggested changes as
+draft pull requests with the diff, rationale and cited authority, for a person to review;
+hybrid ciphers running classical and post-quantum algorithms in parallel for backward
+compatibility; and validation suites that check nothing broke. Every PR runs in the
 customer's pipeline with the customer's token, and a human merges it. The migration proposer
 (A6) tries a codemod first and an LLM diff second, on the customer's model. A deterministic
 verifier must pass before it produces either a draft PR or a blocker report. Code-free outcome
@@ -686,11 +685,11 @@ use cases by end-2030.*
 
 **Phase 4 — Platform consolidation (2030 → 2035).**
 - A dedicated cryptographic research team.
-- High-performance, constant-time implementations of the *standardized* primitives (ML-KEM,
-  ML-DSA, SLH-DSA). Shipped to customers only once validated under CMVP (FIPS 140-3).
+- Implementations of the *standardized* primitives (ML-KEM, ML-DSA, SLH-DSA), shipped to
+  customers only once validated under CMVP (FIPS 140-3).
 - One engine and one control plane, deployable as SaaS, self-hosted or air-gapped.
 - Optionally, a customer-deployed agility layer that delegates to validated modules.
-- Multi-region deployment, plus SOC 2 / ISO 27001.
+- Multi-region deployment; SOC 2 and ISO 27001 as long-term goals.
 
 A hosted service that holds customer keys is not planned. *Regulatory anchor: signatures by
 31 December 2031; full migration by 2035.*
@@ -723,7 +722,7 @@ before it.
 
 - *"Know your quantum risk."*
 - *"Your encryption has an expiry date."*
-- *"Find every quantum-vulnerable algorithm before they find you."*
+- *"Find your quantum-vulnerable cryptography before they do."*
 
 ---
 
@@ -756,7 +755,7 @@ before it.
 
 - [ ] Point all secondary domains (.store, .info, .xyz, .net, .online) to forward to quantsiv.io
 - [x] Landing page live on GitHub Pages (corsinlo.github.io/quantsiv-landing)
-- [ ] Connect the landing waitlist form to a real email list with double opt-in. Today it shows a success message but records nothing; see `quantsiv-landing/CLAUDE.md`.
+- [ ] Connect the landing waitlist form to a real email list with double opt-in, once the privacy notice exists (D4). Today the form is disabled and says the waitlist is not open yet.
 - [ ] Get professional email: hello@quantsiv.io or ludo@quantsiv.io (Google Workspace $6/month or Proton Business $4/month)
 - [ ] Write and post LinkedIn Post 1
 - [ ] Register ProductHunt upcoming page
@@ -768,7 +767,7 @@ before it.
 
 Quantsiv sits at the intersection of three converging forces:
 
-1. **Regulatory pressure** — binding deadlines and compliance requirements (EO 14412, OMB M-26-15, the EU roadmap)
+1. **Regulatory pressure** — dated federal deadlines (EO 14412, OMB M-26-15) and the EU roadmap's recommended dates
 2. **Technical urgency** — harvest now decrypt later is an active threat, not a future one
 3. **Market gap** — free detectors and enterprise platforms exist. CI-native, zero-egress,
    HNDL-prioritised evidence for the regulated mid-market and its suppliers does not.
