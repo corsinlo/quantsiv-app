@@ -2,7 +2,7 @@
 
 Purpose: one list of what Quantsiv may say about itself, each line backed by merged code, and a
 line-by-line comparison with the public landing page (`quantsiv-landing`, `index.html`, checked
-2026-10-05 and again 2026-10-06; the landing repository's last commit is from 1 Oct). This file is for the **private** repo. Landing edits happen in `quantsiv-landing`;
+2026-10-05 and 2026-10-06, and the fixes applied on 2026-10-06 and 2026-10-10). This file is for the **private** repo. Landing edits happen in `quantsiv-landing`;
 carry the wording across by hand, never the file. Do not copy code, pricing, audit material or
 this table's "evidence" column into the public repo.
 
@@ -63,6 +63,11 @@ an estate view that ingests any CBOM, and scanning that runs in your CI. Waivers
 (the .NET tool in the landscape table), so exceptions alone are not a difference.
 
 ## 4. Landing page comparison
+
+**Status 2026-10-10: every row below is applied on the live page** (landing PR #1 and the
+2026-10-06 rewrite). The waitlist form is disabled and says the waitlist is not open yet, the
+footer carries no personal handle, and the title reads "Cryptographic Change Control and CBOM
+Evidence". The table stays as a record. Check any new landing wording against sections 2 and 3.
 
 Checked against `index.html` in `quantsiv-landing`. "Fix" is suggested wording, to be edited in
 that repo.
